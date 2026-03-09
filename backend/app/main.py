@@ -85,7 +85,7 @@ if static_path.exists():
     from fastapi.responses import HTMLResponse
 
     # Dynamic routes: serve the pre-rendered fallback page for /jobs/{id}
-    _jobs_fallback = static_path / "jobs" / "_.html"
+    _jobs_fallback = static_path / "jobs" / "_" / "index.html"
     if _jobs_fallback.exists():
         _jobs_html = _jobs_fallback.read_text(encoding="utf-8")
 
