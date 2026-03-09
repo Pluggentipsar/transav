@@ -24,7 +24,9 @@
       "Bash(winget install:*)",
       "Bash(export:*)",
       "Bash(git add:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(ls:*)"
     ]
   }
 }

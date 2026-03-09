@@ -9,6 +9,7 @@ import {
   FileType,
   Subtitles,
   Check,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
@@ -66,10 +67,14 @@ const FORMATS: FormatOption[] = [
   },
 ];
 
+type CopyTarget = "copy" | "copy-original" | "copy-anonymized";
+
 export function ExportPanel({ jobId, hasAnonymized }: ExportPanelProps) {
   const [anonymized, setAnonymized] = useState(false);
   const [exporting, setExporting] = useState<ExportFormat | "doc" | null>(null);
   const [exported, setExported] = useState<ExportFormat | "doc" | null>(null);
+  const [copying, setCopying] = useState<CopyTarget | null>(null);
+  const [copied, setCopied] = useState<CopyTarget | null>(null);
 
   const handleExport = useCallback(
     async (format: ExportFormat) => {
@@ -132,6 +137,28 @@ export function ExportPanel({ jobId, hasAnonymized }: ExportPanelProps) {
       setExporting(null);
     }
   }, [jobId, anonymized]);
+
+  const handleCopy = useCallback(
+    async (useAnonymized: boolean) => {
+      const target: CopyTarget = hasAnonymized
+        ? useAnonymized
+          ? "copy-anonymized"
+          : "copy-original"
+        : "copy";
+      setCopying(target);
+      try {
+        const content = await exportTranscript(jobId, "txt", useAnonymized);
+        await navigator.clipboard.writeText(content);
+        setCopied(target);
+        setTimeout(() => setCopied(null), 2000);
+      } catch (error) {
+        console.error("Failed to copy text to clipboard:", error);
+      } finally {
+        setCopying(null);
+      }
+    },
+    [jobId, hasAnonymized]
+  );
 
   return (
     <div className="bg-dark-900 border border-dark-800 rounded-lg p-4">
@@ -204,6 +231,83 @@ export function ExportPanel({ jobId, hasAnonymized }: ExportPanelProps) {
             </span>
           </span>
         </Button>
+      </div>
+
+      <div className="mt-4 border-t border-dark-800 pt-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Copy className="h-4 w-4 text-gray-400" />
+          <h3 className="text-sm font-medium text-gray-200">
+            Kopiera till urklipp
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+          {hasAnonymized ? (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleCopy(false)}
+                loading={copying === "copy-original"}
+                disabled={copying !== null}
+                icon={
+                  copied === "copy-original" ? (
+                    <Check className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )
+                }
+                className="justify-start"
+              >
+                <span className="text-xs font-medium">
+                  {copied === "copy-original"
+                    ? "Kopierad!"
+                    : "Kopiera original"}
+                </span>
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleCopy(true)}
+                loading={copying === "copy-anonymized"}
+                disabled={copying !== null}
+                icon={
+                  copied === "copy-anonymized" ? (
+                    <Check className="h-4 w-4 text-green-400" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )
+                }
+                className="justify-start"
+              >
+                <span className="text-xs font-medium">
+                  {copied === "copy-anonymized"
+                    ? "Kopierad!"
+                    : "Kopiera anonymiserad"}
+                </span>
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleCopy(false)}
+              loading={copying === "copy"}
+              disabled={copying !== null}
+              icon={
+                copied === "copy" ? (
+                  <Check className="h-4 w-4 text-green-400" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )
+              }
+              className="justify-start"
+            >
+              <span className="text-xs font-medium">
+                {copied === "copy" ? "Kopierad!" : "Kopiera text"}
+              </span>
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -31,7 +31,7 @@ export function SpeakerManager({
     const statsMap = new Map<string, SpeakerStats>();
 
     for (const segment of segments) {
-      const speaker = segment.speaker ?? "Okand";
+      const speaker = segment.speaker ?? "Okänd";
       const existing = statsMap.get(speaker);
       const wordCount = segment.text.split(/\s+/).filter(Boolean).length;
       const talkTime = segment.end_time - segment.start_time;

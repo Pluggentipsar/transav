@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -53,10 +52,15 @@ import {
 import type { JobResponse, WordReplacement, TemplateResponse } from "@/types";
 
 export default function JobDetailPage() {
-  const params = useParams();
-  const router = useRouter();
   const queryClient = useQueryClient();
-  const jobId = params.id as string;
+  // Read job ID from URL directly — useParams() doesn't work in static export
+  // because the pre-rendered HTML is for /jobs/_ and Next.js can't resolve other IDs.
+  const [jobId, setJobId] = useState<string>("");
+  useEffect(() => {
+    const segments = window.location.pathname.split("/");
+    const id = segments[segments.length - 1] || segments[segments.length - 2];
+    if (id && id !== "_") setJobId(id);
+  }, []);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [showAnonymized, setShowAnonymized] = useState(false);
@@ -206,7 +210,7 @@ export default function JobDetailPage() {
   }, []);
 
   // Loading state
-  if (jobLoading) {
+  if (jobLoading || !jobId) {
     return (
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-center py-20">
@@ -245,9 +249,9 @@ export default function JobDetailPage() {
             Kunde inte ladda jobbet
           </p>
           <p className="text-gray-500 text-sm mb-6">
-            Jobbet kanske har tagits bort eller sa ar servern otillganglig.
+            Jobbet kanske har tagits bort eller så är servern otillgänglig.
           </p>
-          <Button variant="secondary" onClick={() => router.push("/jobs")}>
+          <Button variant="secondary" onClick={() => window.location.href = "/jobs"}>
             Tillbaka till transkriptioner
           </Button>
         </div>
@@ -263,7 +267,7 @@ export default function JobDetailPage() {
     <div className="max-w-6xl mx-auto">
       {/* Back link */}
       <button
-        onClick={() => router.push("/jobs")}
+        onClick={() => window.location.href = "/jobs"}
         className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors text-sm"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -526,7 +530,7 @@ export default function JobDetailPage() {
                 className="w-full"
                 size="sm"
               >
-                Monsteranonymisering
+                Mönsteranonymisering
               </Button>
 
               {/* Collapsible pattern category chips */}
@@ -601,7 +605,7 @@ export default function JobDetailPage() {
               )}
               {(runNerMutation.isError || enhancePatternsMutation.isError) && (
                 <p className="text-xs text-red-400">
-                  Anonymiseringen misslyckades. Forsok igen.
+                  Anonymiseringen misslyckades. Försök igen.
                 </p>
               )}
 
@@ -614,8 +618,8 @@ export default function JobDetailPage() {
               {nerStatusQuery.data &&
                 !nerStatusQuery.data.ner_available && (
                   <p className="text-xs text-gray-600">
-                    AI-anonymisering kraver transformers-paketet.
-                    Monsteranonymisering ar alltid tillganglig.
+                    AI-anonymisering kräver transformers-paketet.
+                    Mönsteranonymisering är alltid tillgänglig.
                   </p>
                 )}
 
@@ -648,7 +652,7 @@ export default function JobDetailPage() {
                     className="w-full mt-2"
                     size="sm"
                   >
-                    Kor egna ord
+                    Kör egna ord
                   </Button>
                 )}
                 {customWordsMutation.data && (
@@ -762,7 +766,7 @@ function JobHeader({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-4 border-t border-dark-800">
         <DetailItem
           icon={<Clock className="h-4 w-4 text-gray-500" />}
-          label="Langd"
+          label="Längd"
           value={formatDuration(job.duration_seconds)}
         />
         <DetailItem
@@ -776,13 +780,13 @@ function JobHeader({
           value={
             job.enable_diarization
               ? `${job.speaker_count} identifierade`
-              : "Avstangd"
+              : "Avstängd"
           }
         />
         <DetailItem
           icon={<ShieldCheck className="h-4 w-4 text-gray-500" />}
           label="Anonymisering"
-          value={job.enable_anonymization ? "Aktiverad" : "Avstangd"}
+          value={job.enable_anonymization ? "Aktiverad" : "Avstängd"}
         />
       </div>
 

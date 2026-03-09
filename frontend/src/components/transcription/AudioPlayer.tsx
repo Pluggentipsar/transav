@@ -141,7 +141,7 @@ export function AudioPlayer({
         <button
           onClick={handleRestart}
           className="p-1.5 text-gray-500 hover:text-white transition-colors rounded"
-          aria-label="Borjan"
+          aria-label="Början"
         >
           <SkipBack className="h-4 w-4" />
         </button>
@@ -186,7 +186,7 @@ export function AudioPlayer({
         <button
           onClick={handleSpeedChange}
           className="px-2 py-1 text-xs font-medium text-gray-400 hover:text-white bg-dark-800 rounded transition-colors min-w-[3rem]"
-          aria-label="Andring av hastighet"
+          aria-label="Ändring av hastighet"
         >
           {speed}x
         </button>
@@ -195,7 +195,7 @@ export function AudioPlayer({
         <button
           onClick={toggleMute}
           className="p-1.5 text-gray-500 hover:text-white transition-colors rounded"
-          aria-label={isMuted ? "Ljud pa" : "Ljud av"}
+          aria-label={isMuted ? "Ljud på" : "Ljud av"}
         >
           {isMuted ? (
             <VolumeX className="h-4 w-4" />

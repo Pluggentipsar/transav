@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import Link from "next/link";
+// NOTE: We use <a> instead of <Link> for /jobs/[id] because in static export
+// only /jobs/_ is pre-rendered. Next.js client-side routing can't resolve
+// dynamic IDs, so we force a full page load to let the backend serve _.html.
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -130,7 +132,7 @@ export default function JobsPage() {
             Kunde inte ladda transkriptioner
           </p>
           <p className="text-gray-500 text-sm mt-1">
-            Kontrollera att backend-servern ar igang.
+            Kontrollera att backend-servern är igång.
           </p>
         </div>
       </div>
@@ -244,7 +246,7 @@ function JobCard({
   const isActive = job.status === "PENDING" || job.status === "PROCESSING";
 
   return (
-    <Link
+    <a
       href={`/jobs/${job.id}`}
       className="block bg-dark-900 border border-dark-800 rounded-lg p-5 hover:border-primary-600/50 transition-all duration-200 group"
     >
@@ -334,6 +336,6 @@ function JobCard({
           <ChevronRight className="h-4 w-4 text-gray-600 group-hover:text-primary-400 transition-colors" />
         </div>
       </div>
-    </Link>
+    </a>
   );
 }

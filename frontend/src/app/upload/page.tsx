@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Upload, Globe, Info } from "lucide-react";
 import type { TranscriptionEngine, TemplateResponse } from "@/types";
 import { FileDropzone } from "@/components/upload/FileDropzone";
+import { AudioPreview } from "@/components/upload/AudioPreview";
+import { AudioRecorder } from "@/components/upload/AudioRecorder";
 import { ModelSelector } from "@/components/upload/ModelSelector";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
@@ -20,7 +21,6 @@ import { getModelsForEngine, NER_ENTITY_TYPES } from "@/utils/format";
 type UploadStep = "idle" | "uploading" | "creating" | "done" | "error";
 
 export default function UploadPage() {
-  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [engine, setEngine] = useState<TranscriptionEngine>("faster-whisper");
@@ -81,16 +81,17 @@ export default function UploadPage() {
       });
 
       setStep("done");
-      router.push(`/jobs/${job.id}`);
+      // Full page load — Next.js static export can't client-route dynamic /jobs/[id]
+      window.location.href = `/jobs/${job.id}`;
     } catch (err: unknown) {
       setStep("error");
       if (err instanceof Error) {
         setErrorMessage(err.message);
       } else {
-        setErrorMessage("Ett ovantad fel uppstod. Forsok igen.");
+        setErrorMessage("Ett oväntat fel uppstod. Försök igen.");
       }
     }
-  }, [file, name, engine, model, language, enableDiarization, enableAnonymization, nerEntityTypes, selectedTemplateId, router]);
+  }, [file, name, engine, model, language, enableDiarization, enableAnonymization, nerEntityTypes, selectedTemplateId]);
 
   const handleEngineChange = useCallback(
     (newEngine: TranscriptionEngine) => {
@@ -118,6 +119,21 @@ export default function UploadPage() {
       </div>
 
       <div className="space-y-8">
+        {/* Record audio */}
+        <section>
+          <AudioRecorder
+            onRecordingComplete={setFile}
+            disabled={isSubmitting}
+          />
+        </section>
+
+        {/* Divider between recorder and dropzone */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 border-t border-dark-800" />
+          <span className="text-xs text-gray-600 uppercase tracking-wider">eller</span>
+          <div className="flex-1 border-t border-dark-800" />
+        </div>
+
         {/* File upload */}
         <section>
           <FileDropzone
@@ -127,6 +143,13 @@ export default function UploadPage() {
             disabled={isSubmitting}
           />
         </section>
+
+        {/* Audio preview — shown when a file is selected */}
+        {file && (
+          <section>
+            <AudioPreview file={file} />
+          </section>
+        )}
 
         {/* Job name */}
         <section>

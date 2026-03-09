@@ -83,7 +83,7 @@ export function CustomWordsInput({
           value={original}
           onChange={(e) => setOriginal(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ord att ersatta..."
+          placeholder="Ord att ersätta..."
           disabled={disabled}
           className={`flex-1 bg-dark-900 border border-dark-800 rounded-md px-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50 ${compact ? "py-1.5 text-xs" : "py-2"}`}
         />
@@ -92,7 +92,7 @@ export function CustomWordsInput({
           value={replacement}
           onChange={(e) => setReplacement(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="[ERSATTNING]"
+          placeholder="[ERSÄTTNING]"
           disabled={disabled}
           className={`flex-1 bg-dark-900 border border-dark-800 rounded-md px-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50 ${compact ? "py-1.5 text-xs" : "py-2"}`}
         />
