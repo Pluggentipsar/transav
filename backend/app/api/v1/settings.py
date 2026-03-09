@@ -1,6 +1,7 @@
 """Settings endpoints for HuggingFace token management."""
 
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -11,8 +12,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Path to .env file in the backend directory
-_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+# Path to .env file — prefer TYSTTEXT_DATA_DIR if set, else backend root
+_ENV_FILE = (
+    Path(os.environ["TYSTTEXT_DATA_DIR"]) / ".env"
+    if os.environ.get("TYSTTEXT_DATA_DIR")
+    else Path(__file__).resolve().parents[3] / ".env"
+)
 
 
 # --- Request/Response schemas ---

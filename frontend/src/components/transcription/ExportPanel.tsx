@@ -6,6 +6,7 @@ import {
   FileText,
   FileCode,
   FileJson,
+  FileType,
   Subtitles,
   Check,
 } from "lucide-react";
@@ -67,8 +68,8 @@ const FORMATS: FormatOption[] = [
 
 export function ExportPanel({ jobId, hasAnonymized }: ExportPanelProps) {
   const [anonymized, setAnonymized] = useState(false);
-  const [exporting, setExporting] = useState<ExportFormat | null>(null);
-  const [exported, setExported] = useState<ExportFormat | null>(null);
+  const [exporting, setExporting] = useState<ExportFormat | "doc" | null>(null);
+  const [exported, setExported] = useState<ExportFormat | "doc" | null>(null);
 
   const handleExport = useCallback(
     async (format: ExportFormat) => {
@@ -101,6 +102,36 @@ export function ExportPanel({ jobId, hasAnonymized }: ExportPanelProps) {
     },
     [jobId, anonymized]
   );
+
+  const handleExportDoc = useCallback(async () => {
+    setExporting("doc");
+    try {
+      const content = await exportTranscript(jobId, "txt", anonymized);
+      const htmlContent = content
+        .split("\n")
+        .map((line: string) => `<p>${line || "&nbsp;"}</p>`)
+        .join("");
+      const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Transkription</title></head><body style="font-family: Calibri, sans-serif; font-size: 11pt;">${htmlContent}</body></html>`;
+      const blob = new Blob([html], { type: "application/msword" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `transkription-${jobId.slice(0, 8)}${
+        anonymized ? "-anonymiserad" : ""
+      }.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setExported("doc");
+      setTimeout(() => setExported(null), 2000);
+    } catch {
+      // Error handling
+    } finally {
+      setExporting(null);
+    }
+  }, [jobId, anonymized]);
 
   return (
     <div className="bg-dark-900 border border-dark-800 rounded-lg p-4">
@@ -151,6 +182,28 @@ export function ExportPanel({ jobId, hasAnonymized }: ExportPanelProps) {
             </Button>
           );
         })}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleExportDoc}
+          loading={exporting === "doc"}
+          disabled={exporting === "doc"}
+          icon={
+            exported === "doc" ? (
+              <Check className="h-4 w-4 text-green-400" />
+            ) : (
+              <FileType className="h-4 w-4" />
+            )
+          }
+          className="justify-start"
+        >
+          <span className="flex flex-col items-start">
+            <span className="text-xs font-medium">Word</span>
+            <span className="text-[10px] text-gray-500">
+              Microsoft Word
+            </span>
+          </span>
+        </Button>
       </div>
     </div>
   );

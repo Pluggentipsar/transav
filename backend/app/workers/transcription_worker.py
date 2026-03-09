@@ -101,16 +101,30 @@ def _process_job(job_id: str) -> None:
         def progress_cb(pct: int, step: str) -> None:
             _progress_callback(job_id, pct, step)
 
-        # 2. Run transcription (5-70%)
+        # 2. Run transcription (5-70%) — dispatch to correct engine
         progress_cb(5, "Startar transkribering...")
-        result = transcribe(
-            audio_path=job.file_path,
-            model_name=job.model,
-            language=job.language,
-            device=settings.default_device,
-            compute_type=settings.default_compute_type,
-            progress_callback=progress_cb,
-        )
+        engine = getattr(job, "engine", "faster-whisper") or "faster-whisper"
+
+        if engine == "easytranscriber":
+            from app.services.transcription_easy import transcribe as transcribe_easy
+
+            result = transcribe_easy(
+                audio_path=job.file_path,
+                model_name=job.model,
+                language=job.language,
+                device=settings.default_device,
+                compute_type=settings.default_compute_type,
+                progress_callback=progress_cb,
+            )
+        else:
+            result = transcribe(
+                audio_path=job.file_path,
+                model_name=job.model,
+                language=job.language,
+                device=settings.default_device,
+                compute_type=settings.default_compute_type,
+                progress_callback=progress_cb,
+            )
 
         # Convert to dicts for diarization compatibility
         segments_data: list[dict[str, object]] = []
@@ -155,11 +169,33 @@ def _process_job(job_id: str) -> None:
         # 4. Run anonymization if enabled (90-95%)
         if job.enable_anonymization:
             progress_cb(90, "Anonymiserar...")
-            from app.services.anonymization import anonymize_ner, anonymize_patterns
+            from app.services.anonymization import (
+                anonymize_custom_words,
+                anonymize_ner,
+                anonymize_patterns,
+            )
 
             entity_types = (
                 job.ner_entity_types.split(",") if job.ner_entity_types else None
             )
+
+            # Load custom word replacements from template
+            custom_replacements: list[tuple[str, str]] = []
+            template_id = getattr(job, "anonymize_template_id", None)
+            if template_id:
+                from app.models.template import WordTemplate
+
+                template = session.get(WordTemplate, template_id)
+                if template:
+                    import json
+
+                    try:
+                        words = json.loads(template.words_json)
+                        custom_replacements = [
+                            (w["original"], w["replacement"]) for w in words
+                        ]
+                    except (json.JSONDecodeError, KeyError):
+                        logger.warning("Failed to parse template %s", template_id)
 
             for seg in segments_data:
                 text = str(seg.get("text", ""))
@@ -168,7 +204,14 @@ def _process_job(job_id: str) -> None:
                 ner_result = anonymize_ner(text, entity_types=entity_types)
                 # Then run pattern anonymization on top
                 pattern_result = anonymize_patterns(ner_result.text)
-                seg["anonymized_text"] = pattern_result.text
+                # Then run custom word replacements
+                if custom_replacements:
+                    custom_result = anonymize_custom_words(
+                        pattern_result.text, custom_replacements
+                    )
+                    seg["anonymized_text"] = custom_result.text
+                else:
+                    seg["anonymized_text"] = pattern_result.text
         else:
             progress_cb(95, "Hoppar over anonymisering")
 

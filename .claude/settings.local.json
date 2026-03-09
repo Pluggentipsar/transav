@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(npm install:*)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(npx next:*)",
+      "Bash(npx tsc:*)",
+      "Bash(.venv/Scripts/uvicorn app.main:app:*)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:kb-labb.github.io)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(grep:*)",
+      "Bash(curl:*)",
+      "Bash(rm:*)",
+      "Bash(powershell:*)",
+      "Bash(tasklist:*)",
+      "Bash(xxd:*)",
+      "Bash(NEXT_PUBLIC_APP_MODE=local npm run:*)",
+      "Bash(gh auth:*)",
+      "Bash(where gh:*)",
+      "Bash(winget install:*)",
+      "Bash(export:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)"
+    ]
+  }
+}

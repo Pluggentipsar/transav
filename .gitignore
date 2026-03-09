@@ -31,6 +31,15 @@ data/models/
 data/*.db
 *.db
 
+# TystText local runtime
+.tysttext/
+
+# Test files
+backend/test_ocr.png
+
+# Build info
+frontend/tsconfig.tsbuildinfo
+
 # Build artifacts
 build-exe/
 dist-backend/

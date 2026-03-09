@@ -7,6 +7,16 @@ import type {
   SegmentResponse,
   AnonymizeRequest,
   AnonymizeResponse,
+  AnonymizeStatusResponse,
+  JobAnonymizationResponse,
+  EngineListResponse,
+  TranscriptionEngine,
+  TemplateListResponse,
+  TemplateResponse,
+  WordReplacement,
+  OcrResponse,
+  OcrAnonymizeResponse,
+  OcrStatusResponse,
 } from "@/types";
 
 const api = axios.create({
@@ -31,10 +41,13 @@ export const deleteUpload = async (fileId: string): Promise<void> => {
 export const createJob = async (params: {
   file_path: string;
   name?: string;
+  engine?: TranscriptionEngine;
   model?: string;
   language?: string;
   enable_diarization?: boolean;
   enable_anonymization?: boolean;
+  ner_entity_types?: string;
+  anonymize_template_id?: string;
 }): Promise<JobResponse> => {
   const { data } = await api.post<JobResponse>("/jobs", params);
   return data;
@@ -142,12 +155,35 @@ export const anonymizeText = async (
   return data;
 };
 
-// Anonymize job transcript
-export const anonymizeJob = async (
-  jobId: string
-): Promise<{ updated_count: number }> => {
-  const { data } = await api.post<{ updated_count: number }>(
-    `/jobs/${jobId}/anonymize`
+// Anonymize status (NER availability)
+export const getAnonymizeStatus =
+  async (): Promise<AnonymizeStatusResponse> => {
+    const { data } = await api.get<AnonymizeStatusResponse>(
+      "/anonymize/status"
+    );
+    return data;
+  };
+
+// Run NER + patterns anonymization on a completed job
+export const runAnonymization = async (
+  jobId: string,
+  params?: { entity_types?: string[]; pattern_types?: string[] }
+): Promise<JobAnonymizationResponse> => {
+  const { data } = await api.post<JobAnonymizationResponse>(
+    `/jobs/${jobId}/run-anonymization`,
+    params ?? {}
+  );
+  return data;
+};
+
+// Run patterns-only anonymization on a completed job
+export const enhanceAnonymization = async (
+  jobId: string,
+  params?: { pattern_types?: string[] }
+): Promise<JobAnonymizationResponse> => {
+  const { data } = await api.post<JobAnonymizationResponse>(
+    `/jobs/${jobId}/enhance-anonymization`,
+    params ?? {}
   );
   return data;
 };
@@ -155,5 +191,87 @@ export const anonymizeJob = async (
 // Audio file URL
 export const getAudioUrl = (jobId: string): string =>
   `/api/v1/jobs/${jobId}/audio`;
+
+// Templates
+export const listTemplates = async (): Promise<TemplateListResponse> => {
+  const { data } = await api.get<TemplateListResponse>("/templates");
+  return data;
+};
+
+export const createTemplate = async (params: {
+  name: string;
+  description?: string;
+  words: WordReplacement[];
+}): Promise<TemplateResponse> => {
+  const { data } = await api.post<TemplateResponse>("/templates", params);
+  return data;
+};
+
+export const deleteTemplate = async (id: string): Promise<void> => {
+  await api.delete(`/templates/${id}`);
+};
+
+// Apply custom words to a completed job
+export const applyCustomWords = async (
+  jobId: string,
+  params: {
+    template_id?: string;
+    custom_words?: WordReplacement[];
+  }
+): Promise<JobAnonymizationResponse> => {
+  const { data } = await api.post<JobAnonymizationResponse>(
+    `/jobs/${jobId}/apply-custom-words`,
+    params
+  );
+  return data;
+};
+
+// Engines
+export const listEngines = async (): Promise<EngineListResponse> => {
+  const { data } = await api.get<EngineListResponse>("/models/engines");
+  return data;
+};
+
+// OCR
+export const ocrExtractText = async (file: File): Promise<OcrResponse> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await api.post<OcrResponse>("/ocr", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
+
+export const ocrExtractAndAnonymize = async (
+  file: File,
+  params?: {
+    use_ner?: boolean;
+    use_patterns?: boolean;
+    entity_types?: string[];
+    pattern_types?: string[];
+  }
+): Promise<OcrAnonymizeResponse> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (params?.use_ner !== undefined)
+    formData.append("use_ner", String(params.use_ner));
+  if (params?.use_patterns !== undefined)
+    formData.append("use_patterns", String(params.use_patterns));
+  if (params?.entity_types)
+    formData.append("entity_types", JSON.stringify(params.entity_types));
+  if (params?.pattern_types)
+    formData.append("pattern_types", JSON.stringify(params.pattern_types));
+  const { data } = await api.post<OcrAnonymizeResponse>(
+    "/ocr/anonymize",
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return data;
+};
+
+export const getOcrStatus = async (): Promise<OcrStatusResponse> => {
+  const { data } = await api.get<OcrStatusResponse>("/ocr/status");
+  return data;
+};
 
 export default api;

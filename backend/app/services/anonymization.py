@@ -24,6 +24,7 @@ def is_ner_available() -> bool:
 class AnonymizationResult:
     text: str
     entities_found: int
+    entity_counts: dict[str, int] | None = None
 
 
 def anonymize_ner(
@@ -59,6 +60,7 @@ def anonymize_ner(
     allowed_types = set(entity_types) if entity_types else default_types
     anonymized = text
     count = 0
+    counts: dict[str, int] = {}
 
     label_map = {
         "PER": "PERSON",
@@ -79,53 +81,96 @@ def anonymize_ner(
         label = label_map.get(etype, etype)
         anonymized = anonymized[: entity["start"]] + f"[{label}]" + anonymized[entity["end"] :]
         count += 1
+        counts[label] = counts.get(label, 0) + 1
 
-    return AnonymizationResult(text=anonymized, entities_found=count)
+    return AnonymizationResult(text=anonymized, entities_found=count, entity_counts=counts)
 
 
-# Pattern-based anonymization
-PATTERNS: list[tuple[str, str]] = [
-    # Personnummer: YYYYMMDD-XXXX
-    (r"\b\d{8}[-–]\d{4}\b", "[PERSONNUMMER]"),
-    # Telefonnummer
-    (r"\b(?:0\d{1,3}[-–\s]?\d{2,3}[-–\s]?\d{2}[-–\s]?\d{2})\b", "[TELEFONNUMMER]"),
-    (r"\b(?:07\d[-–\s]?\d{3}[-–\s]?\d{2}[-–\s]?\d{2})\b", "[TELEFONNUMMER]"),
-    # E-post
-    (r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b", "[E-POST]"),
-    # Postnummer
-    (r"\b\d{3}\s?\d{2}\b", "[POSTNUMMER]"),
-    # Datum
-    (r"\b\d{4}[-–/]\d{2}[-–/]\d{2}\b", "[DATUM]"),
-    # URL
-    (r"https?://[^\s]+", "[URL]"),
-    # Registreringsnummer
-    (r"\b[A-Z]{3}\s?\d{2}[A-Z0-9]\b", "[REGNUMMER]"),
+# Pattern-based anonymization: (category, regex, replacement)
+PATTERNS: list[tuple[str, str, str]] = [
+    ("personnummer", r"\b\d{8}[-–]\d{4}\b", "[PERSONNUMMER]"),
+    ("telefon", r"\b(?:0\d{1,3}[-–\s]?\d{2,3}[-–\s]?\d{2}[-–\s]?\d{2})\b", "[TELEFONNUMMER]"),
+    ("telefon", r"\b(?:07\d[-–\s]?\d{3}[-–\s]?\d{2}[-–\s]?\d{2})\b", "[TELEFONNUMMER]"),
+    ("epost", r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b", "[E-POST]"),
+    ("postnummer", r"\b\d{3}\s?\d{2}\b", "[POSTNUMMER]"),
+    ("datum", r"\b\d{4}[-–/]\d{2}[-–/]\d{2}\b", "[DATUM]"),
+    ("url", r"https?://[^\s]+", "[URL]"),
+    ("regnummer", r"\b[A-Z]{3}\s?\d{2}[A-Z0-9]\b", "[REGNUMMER]"),
+    # Svenska institutionsmonster
+    (
+        "institutioner",
+        r"\b(?:pa|i|vid|fran)\s+(?:\w+)?(?:skolan|gymnasiet|universitetet|hogskolan)\b",
+        "[INSTITUTION]",
+    ),
+    (
+        "institutioner",
+        r"\b(?:pa|i|vid|fran)\s+(?:\w+)?(?:sjukhuset|vardcentralen|kliniken)\b",
+        "[INSTITUTION]",
+    ),
+    (
+        "institutioner",
+        r"\b(?:pa|i|vid|fran)\s+(?:\w+)?(?:kommunen|regionen|lansstyrelsen)\b",
+        "[INSTITUTION]",
+    ),
 ]
 
-# Svenska institutionsmonster
-INSTITUTION_PATTERNS: list[tuple[str, str]] = [
-    (r"\b(?:pa|i|vid|fran)\s+(?:\w+)?(?:skolan|gymnasiet|universitetet|hogskolan)\b",
-     "[INSTITUTION]"),
-    (r"\b(?:pa|i|vid|fran)\s+(?:\w+)?(?:sjukhuset|vardcentralen|kliniken)\b", "[INSTITUTION]"),
-    (r"\b(?:pa|i|vid|fran)\s+(?:\w+)?(?:kommunen|regionen|lansstyrelsen)\b", "[INSTITUTION]"),
+ALL_PATTERN_CATEGORIES: list[str] = [
+    "personnummer", "telefon", "epost", "postnummer", "datum", "url", "regnummer", "institutioner",
 ]
 
 
 def anonymize_patterns(
     text: str,
-    include_institutions: bool = True,
+    pattern_types: list[str] | None = None,
 ) -> AnonymizationResult:
-    """Anonymize text using regex patterns."""
+    """Anonymize text using regex patterns.
+
+    Args:
+        text: Text to process.
+        pattern_types: List of pattern category IDs to apply. None = all.
+    """
     anonymized = text
     count = 0
+    counts: dict[str, int] = {}
 
-    all_patterns = PATTERNS.copy()
-    if include_institutions:
-        all_patterns.extend(INSTITUTION_PATTERNS)
-
-    for pattern, replacement in all_patterns:
+    for category, pattern, replacement in PATTERNS:
+        if pattern_types is not None and category not in pattern_types:
+            continue
         matches = re.findall(pattern, anonymized, re.IGNORECASE)
-        count += len(matches)
+        if matches:
+            label = replacement.strip("[]")
+            count += len(matches)
+            counts[label] = counts.get(label, 0) + len(matches)
         anonymized = re.sub(pattern, replacement, anonymized, flags=re.IGNORECASE)
 
-    return AnonymizationResult(text=anonymized, entities_found=count)
+    return AnonymizationResult(text=anonymized, entities_found=count, entity_counts=counts)
+
+
+def anonymize_custom_words(
+    text: str,
+    replacements: list[tuple[str, str]],
+) -> AnonymizationResult:
+    """Replace custom words/phrases in text.
+
+    Args:
+        text: Text to process.
+        replacements: List of (original, replacement) tuples.
+            Case-insensitive whole-word matching.
+    """
+    anonymized = text
+    count = 0
+    counts: dict[str, int] = {}
+
+    for original, replacement in replacements:
+        if not original.strip():
+            continue
+        # Escape regex special chars, match whole word, case-insensitive
+        pattern = r"\b" + re.escape(original.strip()) + r"\b"
+        matches = re.findall(pattern, anonymized, re.IGNORECASE)
+        if matches:
+            label = replacement.strip("[]")
+            count += len(matches)
+            counts[label] = counts.get(label, 0) + len(matches)
+        anonymized = re.sub(pattern, replacement, anonymized, flags=re.IGNORECASE)
+
+    return AnonymizationResult(text=anonymized, entities_found=count, entity_counts=counts)

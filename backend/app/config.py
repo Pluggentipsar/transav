@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     static_dir: str = "../frontend/out"
 
     # ML settings
+    default_engine: str = "faster-whisper"
     default_model: str = "KBLab/kb-whisper-small"
     default_device: str = "auto"
     default_compute_type: str = "auto"

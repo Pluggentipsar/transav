@@ -32,16 +32,21 @@ async def create_job(
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Ljudfil hittades inte")
 
+    from datetime import datetime
+
+    default_name = datetime.now().strftime("Transkription %Y-%m-%d %H:%M")
     job = Job(
-        name=data.name or file_path.stem,
+        name=data.name or default_name,
         file_name=file_path.name,
         file_path=str(file_path),
         file_size=file_path.stat().st_size,
+        engine=data.engine,
         model=data.model,
         language=data.language,
         enable_diarization=data.enable_diarization,
         enable_anonymization=data.enable_anonymization,
         ner_entity_types=data.ner_entity_types,
+        anonymize_template_id=data.anonymize_template_id,
         status="PENDING",
     )
     session.add(job)

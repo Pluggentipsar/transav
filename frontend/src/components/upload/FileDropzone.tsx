@@ -11,6 +11,11 @@ interface FileDropzoneProps {
   onFileSelect: (file: File) => void;
   onFileClear: () => void;
   disabled?: boolean;
+  accept?: Record<string, string[]>;
+  dropLabel?: string;
+  dropSublabel?: string;
+  formatLabel?: string;
+  fileIcon?: React.ReactNode;
 }
 
 export function FileDropzone({
@@ -18,6 +23,11 @@ export function FileDropzone({
   onFileSelect,
   onFileClear,
   disabled = false,
+  accept = ACCEPTED_AUDIO_FORMATS,
+  dropLabel = "Dra och släpp en ljudfil här",
+  dropSublabel = "eller klicka för att välja fil",
+  formatLabel = ".mp3, .wav, .m4a, .ogg, .flac, .webm",
+  fileIcon,
 }: FileDropzoneProps) {
   const onDrop = useCallback(
     (acceptedFiles: File[], rejections: FileRejection[]) => {
@@ -34,14 +44,14 @@ export function FileDropzone({
   const { getRootProps, getInputProps, isDragActive, fileRejections } =
     useDropzone({
       onDrop,
-      accept: ACCEPTED_AUDIO_FORMATS,
+      accept,
       maxFiles: 1,
       disabled,
     });
 
   const rejectionMessage =
     fileRejections.length > 0
-      ? "Ogiltigt filformat. Accepterade format: .mp3, .wav, .m4a, .ogg, .flac, .webm"
+      ? `Ogiltigt filformat. Accepterade format: ${formatLabel}`
       : null;
 
   if (file) {
@@ -49,7 +59,7 @@ export function FileDropzone({
       <div className="bg-dark-900 border border-primary-600/30 rounded-lg p-6">
         <div className="flex items-center gap-4">
           <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-primary-600/15 flex items-center justify-center">
-            <FileAudio className="h-6 w-6 text-primary-400" />
+            {fileIcon ?? <FileAudio className="h-6 w-6 text-primary-400" />}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
@@ -97,20 +107,20 @@ export function FileDropzone({
         />
         {isDragActive ? (
           <p className="text-primary-400 font-medium">
-            Slapp filen har...
+            Släpp filen här...
           </p>
         ) : (
           <>
             <p className="text-gray-300 font-medium mb-1">
-              Dra och slapp en ljudfil har
+              {dropLabel}
             </p>
             <p className="text-gray-500 text-sm">
-              eller klicka for att valja fil
+              {dropSublabel}
             </p>
           </>
         )}
         <p className="text-gray-600 text-xs mt-3">
-          .mp3, .wav, .m4a, .ogg, .flac, .webm
+          {formatLabel}
         </p>
       </div>
       {rejectionMessage && (

@@ -7,6 +7,7 @@ import {
   Upload,
   List,
   ShieldCheck,
+  ScanText,
   FileAudio,
 } from "lucide-react";
 import { twMerge } from "tailwind-merge";
@@ -33,6 +34,11 @@ const navItems: NavItem[] = [
     href: "/anonymize",
     label: "Anonymisera",
     icon: <ShieldCheck className="h-4 w-4" />,
+  },
+  {
+    href: "/ocr",
+    label: "OCR",
+    icon: <ScanText className="h-4 w-4" />,
   },
 ];
 

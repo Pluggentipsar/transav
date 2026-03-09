@@ -41,10 +41,10 @@ export default function HomePage() {
       {/* Hero */}
       <div className="text-center py-12">
         <h2 className="text-3xl font-bold text-white mb-4">
-          Valkommen till TystText
+          Välkommen till TystText
         </h2>
         <p className="text-gray-400 text-lg mb-8 max-w-xl mx-auto">
-          Transkribera intervjuer lokalt med svensk AI. All data stannar pa din
+          Transkribera intervjuer lokalt med svensk AI. All data stannar på din
           dator.
         </p>
       </div>
@@ -64,7 +64,7 @@ export default function HomePage() {
           />
           <StatCard
             icon={<Loader2 className="h-5 w-5 text-blue-400" />}
-            label="Pagaende"
+            label="Pågående"
             value={`${processingCount}`}
           />
         </div>
@@ -107,7 +107,7 @@ export default function HomePage() {
             Anonymisera text
           </h3>
           <p className="text-gray-400 text-sm">
-            Anonymisera godtycklig text med AI och monstermatching.
+            Anonymisera godtycklig text med AI och mönstermatchning.
           </p>
         </Link>
       </div>

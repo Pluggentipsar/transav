@@ -31,6 +31,23 @@ class ModelListResponse(BaseModel):
     default_model: str
 
 
+class EngineInfo(BaseModel):
+    """Information about a transcription engine."""
+
+    id: str
+    name: str
+    description: str
+    available: bool
+    models: list[ModelInfo]
+
+
+class EngineListResponse(BaseModel):
+    """List of available transcription engines."""
+
+    engines: list[EngineInfo]
+    default_engine: str
+
+
 class SystemInfoResponse(BaseModel):
     """System GPU and compute info."""
 
@@ -44,6 +61,49 @@ class SystemInfoResponse(BaseModel):
 
 
 # --- Available KB-Whisper models ---
+
+EASY_TRANSCRIBER_MODELS: list[ModelInfo] = [
+    ModelInfo(
+        id="KBLab/kb-whisper-tiny",
+        name="KB-Whisper Tiny",
+        size_label="tiny",
+        parameters="39M",
+        description="Snabbast, lagre precision. Bra for testning.",
+        recommended_vram="~1 GB",
+    ),
+    ModelInfo(
+        id="KBLab/kb-whisper-base",
+        name="KB-Whisper Base",
+        size_label="base",
+        parameters="74M",
+        description="Snabb med rimlig precision.",
+        recommended_vram="~1 GB",
+    ),
+    ModelInfo(
+        id="KBLab/kb-whisper-small",
+        name="KB-Whisper Small",
+        size_label="small",
+        parameters="244M",
+        description="Bra balans mellan hastighet och precision. Rekommenderad.",
+        recommended_vram="~2 GB",
+    ),
+    ModelInfo(
+        id="KBLab/kb-whisper-medium",
+        name="KB-Whisper Medium",
+        size_label="medium",
+        parameters="769M",
+        description="Hog precision, kraver mer minne.",
+        recommended_vram="~5 GB",
+    ),
+    ModelInfo(
+        id="KBLab/kb-whisper-large",
+        name="KB-Whisper Large",
+        size_label="large",
+        parameters="1550M",
+        description="Hogst precision. Kraver GPU med mycket minne.",
+        recommended_vram="~10 GB",
+    ),
+]
 
 KB_WHISPER_MODELS: list[ModelInfo] = [
     ModelInfo(
@@ -100,6 +160,38 @@ async def list_models() -> ModelListResponse:
     return ModelListResponse(
         models=KB_WHISPER_MODELS,
         default_model=settings.default_model,
+    )
+
+
+@router.get("/engines", response_model=EngineListResponse)
+async def list_engines() -> EngineListResponse:
+    """List available transcription engines and their models."""
+    from app.config import settings
+    from app.services.transcription_easy import is_available as easy_available
+
+    engines: list[EngineInfo] = [
+        EngineInfo(
+            id="faster-whisper",
+            name="Faster-Whisper",
+            description="Standard CTranslate2-baserad motor. Stabil och valtested.",
+            available=True,
+            models=KB_WHISPER_MODELS,
+        ),
+        EngineInfo(
+            id="easytranscriber",
+            name="EasyTranscriber",
+            description=(
+                "Snabbare pipeline med wav2vec2-alignment."
+                " 35-102% snabbare, battre ordtidsstamplar."
+            ),
+            available=easy_available(),
+            models=EASY_TRANSCRIBER_MODELS,
+        ),
+    ]
+
+    return EngineListResponse(
+        engines=engines,
+        default_engine=settings.default_engine,
     )
 
 

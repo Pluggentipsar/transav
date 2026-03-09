@@ -1,4 +1,4 @@
-import type { JobStatus, ModelOption } from "@/types";
+import type { JobStatus, ModelOption, NerEntityType, TranscriptionEngine } from "@/types";
 
 /** Format seconds to mm:ss or hh:mm:ss */
 export function formatDuration(seconds: number | null): string {
@@ -63,7 +63,7 @@ export function getStatusInfo(status: JobStatus): {
 } {
   switch (status) {
     case "PENDING":
-      return { label: "Vantar", variant: "warning" };
+      return { label: "Väntar", variant: "warning" };
     case "PROCESSING":
       return { label: "Bearbetar", variant: "info" };
     case "COMPLETED":
@@ -81,13 +81,13 @@ export const MODEL_OPTIONS: ModelOption[] = [
     id: "KBLab/kb-whisper-tiny",
     label: "Tiny",
     size: "~75 MB",
-    description: "Snabbast, lagst kvalitet",
+    description: "Snabbast, lägst kvalitet",
   },
   {
     id: "KBLab/kb-whisper-base",
     label: "Base",
     size: "~150 MB",
-    description: "Snabb, grundlaggande kvalitet",
+    description: "Snabb, grundläggande kvalitet",
   },
   {
     id: "KBLab/kb-whisper-small",
@@ -99,15 +99,121 @@ export const MODEL_OPTIONS: ModelOption[] = [
     id: "KBLab/kb-whisper-medium",
     label: "Medium",
     size: "~1.5 GB",
-    description: "Hog kvalitet, langsammare",
+    description: "Hög kvalitet, långsammare",
   },
   {
     id: "KBLab/kb-whisper-large",
     label: "Large",
     size: "~3 GB",
-    description: "Bast kvalitet, langsammast",
+    description: "Bäst kvalitet, långsammast",
   },
 ];
+
+/** Available models for easytranscriber (same KB-Whisper models) */
+export const EASY_TRANSCRIBER_MODEL_OPTIONS: ModelOption[] = [
+  {
+    id: "KBLab/kb-whisper-tiny",
+    label: "Tiny",
+    size: "~75 MB",
+    description: "Snabbast, lägst kvalitet",
+  },
+  {
+    id: "KBLab/kb-whisper-base",
+    label: "Base",
+    size: "~150 MB",
+    description: "Snabb, grundläggande kvalitet",
+  },
+  {
+    id: "KBLab/kb-whisper-small",
+    label: "Small",
+    size: "~500 MB",
+    description: "Bra balans mellan hastighet och kvalitet",
+  },
+  {
+    id: "KBLab/kb-whisper-medium",
+    label: "Medium",
+    size: "~1.5 GB",
+    description: "Hög kvalitet, långsammare",
+  },
+  {
+    id: "KBLab/kb-whisper-large",
+    label: "Large",
+    size: "~3 GB",
+    description: "Bäst kvalitet, långsammast",
+  },
+];
+
+/** Engine options */
+export const ENGINE_OPTIONS: {
+  id: TranscriptionEngine;
+  label: string;
+  description: string;
+}[] = [
+  {
+    id: "faster-whisper",
+    label: "Faster-Whisper",
+    description: "Standard CTranslate2-motor. Stabil och vältestad.",
+  },
+  {
+    id: "easytranscriber",
+    label: "EasyTranscriber",
+    description: "Snabbare pipeline med bättre ordtidsstämplar.",
+  },
+];
+
+/** Get model options for a given engine */
+export function getModelsForEngine(engine: TranscriptionEngine): ModelOption[] {
+  switch (engine) {
+    case "easytranscriber":
+      return EASY_TRANSCRIBER_MODEL_OPTIONS;
+    case "faster-whisper":
+    default:
+      return MODEL_OPTIONS;
+  }
+}
+
+/** NER entity types for KB-BERT */
+export const NER_ENTITY_TYPES: NerEntityType[] = [
+  { id: "PER", label: "Person", description: "Personnamn" },
+  { id: "LOC", label: "Plats", description: "Platser och adresser" },
+  { id: "ORG", label: "Organisation", description: "Organisationer och företag" },
+  { id: "TME", label: "Tid", description: "Datum och tidsuttryck" },
+  { id: "EVN", label: "Händelse", description: "Namngivna händelser" },
+];
+
+/** Pattern categories for regex-based anonymization */
+export interface PatternCategory {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const PATTERN_CATEGORIES: PatternCategory[] = [
+  { id: "personnummer", label: "Personnummer", description: "YYYYMMDD-XXXX" },
+  { id: "telefon", label: "Telefonnummer", description: "Fasta och mobila nummer" },
+  { id: "epost", label: "E-post", description: "E-postadresser" },
+  { id: "postnummer", label: "Postnummer", description: "Femsiffriga postnummer" },
+  { id: "datum", label: "Datum", description: "YYYY-MM-DD" },
+  { id: "url", label: "URL", description: "Webblänkar" },
+  { id: "regnummer", label: "Regnummer", description: "Fordonsregistrering" },
+  { id: "institutioner", label: "Institutioner", description: "Skolor, sjukhus, kommuner" },
+];
+
+/** Color mapping for anonymized entity tags in output */
+export const ENTITY_COLORS: Record<string, string> = {
+  PERSON: "bg-red-500/20 text-red-300 border-red-500/30",
+  PLATS: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  ORGANISATION: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  DATUM: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  HANDELSE: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  PERSONNUMMER: "bg-red-600/20 text-red-300 border-red-600/30",
+  TELEFONNUMMER: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  "E-POST": "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  POSTNUMMER: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  URL: "bg-sky-500/20 text-sky-300 border-sky-500/30",
+  REGNUMMER: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+  INSTITUTION: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+};
 
 /** Accepted audio formats */
 export const ACCEPTED_AUDIO_FORMATS: Record<string, string[]> = {
@@ -119,6 +225,16 @@ export const ACCEPTED_AUDIO_FORMATS: Record<string, string[]> = {
   "audio/ogg": [".ogg"],
   "audio/flac": [".flac"],
   "audio/webm": [".webm"],
+};
+
+/** Accepted image/PDF formats for OCR */
+export const ACCEPTED_OCR_FORMATS: Record<string, string[]> = {
+  "image/png": [".png"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/tiff": [".tiff", ".tif"],
+  "image/bmp": [".bmp"],
+  "image/webp": [".webp"],
+  "application/pdf": [".pdf"],
 };
 
 /** Speaker colors - consistent colors for speaker identification */

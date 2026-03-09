@@ -20,11 +20,13 @@ class Job(Base):
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Settings
+    engine: Mapped[str] = mapped_column(Text, default="faster-whisper")
     model: Mapped[str] = mapped_column(Text, default="KBLab/kb-whisper-small")
     language: Mapped[str] = mapped_column(Text, default="sv")
     enable_diarization: Mapped[bool] = mapped_column(Boolean, default=False)
     enable_anonymization: Mapped[bool] = mapped_column(Boolean, default=False)
     ner_entity_types: Mapped[str | None] = mapped_column(Text, nullable=True)
+    anonymize_template_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     # Status
     status: Mapped[str] = mapped_column(Text, default="PENDING")

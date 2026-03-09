@@ -82,4 +82,15 @@ async def health_check() -> dict[str, str]:
 # Serve static frontend in production
 static_path = settings.static_path
 if static_path.exists():
+    from fastapi.responses import HTMLResponse
+
+    # Dynamic routes: serve the pre-rendered fallback page for /jobs/{id}
+    _jobs_fallback = static_path / "jobs" / "_.html"
+    if _jobs_fallback.exists():
+        _jobs_html = _jobs_fallback.read_text(encoding="utf-8")
+
+        @app.get("/jobs/{job_id}", response_class=HTMLResponse)
+        async def serve_job_detail(job_id: str) -> HTMLResponse:
+            return HTMLResponse(_jobs_html)
+
     app.mount("/", StaticFiles(directory=str(static_path), html=True), name="static")

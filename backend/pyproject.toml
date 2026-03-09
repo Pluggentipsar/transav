@@ -25,6 +25,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+easytranscriber = [
+    "easytranscriber",
+]
 diarization = [
     "whisperx",
     "pyannote.audio",
@@ -32,6 +35,10 @@ diarization = [
 anonymization = [
     "transformers",
     "torch",
+]
+ocr = [
+    "easyocr",
+    "PyMuPDF",
 ]
 dev = [
     "pytest>=7.4.0",

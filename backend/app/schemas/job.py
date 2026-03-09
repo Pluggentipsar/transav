@@ -8,11 +8,13 @@ from pydantic import BaseModel
 class JobCreate(BaseModel):
     file_path: str
     name: str | None = None
+    engine: str = "faster-whisper"
     model: str = "KBLab/kb-whisper-small"
     language: str = "sv"
     enable_diarization: bool = False
     enable_anonymization: bool = False
     ner_entity_types: str | None = None
+    anonymize_template_id: str | None = None
 
 
 class JobUpdate(BaseModel):
@@ -25,10 +27,12 @@ class JobResponse(BaseModel):
     file_name: str
     file_size: int
     duration_seconds: float | None
+    engine: str
     model: str
     language: str
     enable_diarization: bool
     enable_anonymization: bool
+    anonymize_template_id: str | None
     status: str
     progress: int
     current_step: str | None
