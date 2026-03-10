@@ -4,7 +4,8 @@
     TystText installationsscript — kör EN gång.
 .DESCRIPTION
     Idempotent: varje steg markeras med en fil i .tysttext/ och hoppas över vid omkörning.
-    Laddar ned Python 3.11.9 embedded, pip, PyTorch, backend-beroenden, ffmpeg och KB-BERT NER.
+    Laddar ned Python 3.11.9 embedded, pip, PyTorch, backend-beroenden, ffmpeg, KB-BERT NER
+    och valfritt pyannote talaridentifiering.
 #>
 [CmdletBinding()]
 param()
@@ -113,7 +114,7 @@ foreach ($d in @($TystDir, $PythonDir, $FfmpegDir, $DataDir, $ModelsDir, $HfHome
 # ══════════════════════════════════════════════════════════════════════════════
 # STEG 1: Diskutrymme
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step '1/7' 'Kontrollerar diskutrymme'
+Write-Step '1/8' 'Kontrollerar diskutrymme'
 
 $drive = (Resolve-Path $Root).Drive
 if ($null -eq $drive) {
@@ -140,7 +141,7 @@ else {
 # ══════════════════════════════════════════════════════════════════════════════
 # STEG 2: GPU-val
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step '2/7' 'GPU-val'
+Write-Step '2/8' 'GPU-val'
 
 $gpuChoiceFile = Join-Path $TystDir '.gpu-choice'
 if (Test-Path $gpuChoiceFile) {
@@ -167,7 +168,7 @@ else {
 # ══════════════════════════════════════════════════════════════════════════════
 # STEG 3: Python 3.11.9 embedded
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step '3/7' 'Python 3.11.9 (embedded)'
+Write-Step '3/8' 'Python 3.11.9 (embedded)'
 
 if (Test-StepDone '.step-python-installed') {
     Write-Host "    Redan installerat — hoppar over"
@@ -232,7 +233,7 @@ $PipExe    = Join-Path $PythonDir 'Scripts\pip.exe'
 # ══════════════════════════════════════════════════════════════════════════════
 # STEG 4: Beroenden (PyTorch + backend)
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step '4/7' "Installerar beroenden ($GpuChoice)"
+Write-Step '4/8' "Installerar beroenden ($GpuChoice)"
 
 $depsMarker = ".step-deps-$GpuChoice"
 if (Test-StepDone $depsMarker) {
@@ -275,7 +276,7 @@ else {
 # ══════════════════════════════════════════════════════════════════════════════
 # STEG 5: ffmpeg
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step '5/7' 'ffmpeg'
+Write-Step '5/8' 'ffmpeg'
 
 if (Test-StepDone '.step-ffmpeg-installed') {
     Write-Host "    Redan installerat — hoppar over"
@@ -311,7 +312,7 @@ else {
 # ══════════════════════════════════════════════════════════════════════════════
 # STEG 6: KB-BERT NER-modell
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step '6/7' 'KB-BERT NER-modell'
+Write-Step '6/8' 'KB-BERT NER-modell'
 
 if (Test-StepDone '.step-ner-model') {
     Write-Host "    Redan nedladdad — hoppar over"
@@ -347,9 +348,134 @@ else {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEG 7: Frontend (valfritt)
+# STEG 7: Pyannote talaridentifiering (valfritt)
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step '7/7' 'Frontend (valfritt)'
+Write-Step '7/8' 'Talaridentifiering (valfritt)'
+
+$PyannoteDir = Join-Path $ModelsDir 'pyannote\speaker-diarization-community-1'
+
+if (Test-StepDone '.step-pyannote-model') {
+    Write-Host "    Redan installerat — hoppar over"
+}
+else {
+    Write-Host ""
+    Write-Host "    Talaridentifiering kan separera olika talare i en inspelning." -ForegroundColor Yellow
+    Write-Host "    Detta kraver en gratis HuggingFace-token (engangskonfiguration)."
+    Write-Host "    Funktionen ar valfri — transkription fungerar utan den."
+    Write-Host ""
+    $ans = Read-Host "    Vill du konfigurera talaridentifiering? (J/N)"
+
+    if ($ans -match '^[jJyY]') {
+        Write-Host ""
+        Write-Host "    For att ladda ned modellen behover du:" -ForegroundColor Cyan
+        Write-Host "    1. Skapa ett gratis konto:  https://huggingface.co/join"
+        Write-Host "    2. Godkann modellen:        https://huggingface.co/pyannote/speaker-diarization-community-1"
+        Write-Host "    3. Skapa en access token:   https://huggingface.co/settings/tokens"
+        Write-Host ""
+        $hfToken = Read-Host "    Klistra in din HuggingFace-token (hf_...)"
+
+        if ($hfToken -match '^hf_') {
+            Write-Host "    Installerar pyannote-audio..."
+            $rc = Invoke-Native -PassThru { & $PipExe install --no-warn-script-location "pyannote.audio>=3.1" }
+            if ($rc -ne 0) {
+                Write-Host "    pyannote-audio installationen misslyckades — hoppar over" -ForegroundColor Yellow
+            }
+            else {
+                Write-Host "    Laddar ned pyannote-modell (kan ta nagra minuter)..."
+
+                $env:HF_HOME = $HfHome
+                $env:TRANSFORMERS_CACHE = $HfHome
+
+                # Skapa malkatalog
+                if (-not (Test-Path $PyannoteDir)) {
+                    $null = New-Item -Path $PyannoteDir -ItemType Directory -Force
+                }
+
+                $pyannoteLines = @(
+                    "import os, sys"
+                    "os.environ['HF_HOME'] = r'" + $HfHome + "'"
+                    "os.environ['TRANSFORMERS_CACHE'] = r'" + $HfHome + "'"
+                    "token = r'" + $hfToken + "'"
+                    "output_dir = r'" + $PyannoteDir + "'"
+                    ""
+                    "print('  Laddar pyannote pipeline...')"
+                    "try:"
+                    "    from pyannote.audio import Pipeline"
+                    "    pipeline = Pipeline.from_pretrained("
+                    "        'pyannote/speaker-diarization-community-1',"
+                    "        use_auth_token=token"
+                    "    )"
+                    "    # Spara lokalt sa token aldrig behovs igen"
+                    "    import shutil, yaml"
+                    "    from pathlib import Path"
+                    "    # Hämta cache-sökväg och kopiera config.yaml + modeller"
+                    "    cache_dir = Path(os.environ['HF_HOME']) / 'hub'"
+                    "    src_dirs = list(cache_dir.glob('models--pyannote--speaker-diarization*'))"
+                    "    if src_dirs:"
+                    "        src = src_dirs[0] / 'snapshots'"
+                    "        snapshots = list(src.iterdir()) if src.exists() else []"
+                    "        if snapshots:"
+                    "            snap = snapshots[0]"
+                    "            for f in snap.iterdir():"
+                    "                dest = Path(output_dir) / f.name"
+                    "                if f.is_file():"
+                    "                    shutil.copy2(str(f), str(dest))"
+                    "                elif f.is_dir():"
+                    "                    if dest.exists(): shutil.rmtree(str(dest))"
+                    "                    shutil.copytree(str(f), str(dest))"
+                    "    # Verifiera"
+                    "    config = Path(output_dir) / 'config.yaml'"
+                    "    if config.exists():"
+                    "        print('  Modell sparad lokalt — token behovs aldrig igen!')"
+                    "    else:"
+                    "        print('  VARNING: config.yaml hittades inte', file=sys.stderr)"
+                    "        sys.exit(1)"
+                    "except Exception as e:"
+                    "    print(f'  Nedladdning misslyckades: {e}', file=sys.stderr)"
+                    "    sys.exit(1)"
+                )
+                $pyannoteScriptFile = Join-Path $TystDir '_download_pyannote.py'
+                Set-Content -Path $pyannoteScriptFile -Value ($pyannoteLines -join "`n") -Encoding UTF8
+
+                $rc = Invoke-Native -PassThru { & $PythonExe $pyannoteScriptFile }
+                Remove-Item -Path $pyannoteScriptFile -Force -ErrorAction SilentlyContinue
+
+                if ($rc -ne 0) {
+                    Write-Host "    Pyannote-modellen kunde inte laddas ned." -ForegroundColor Yellow
+                    Write-Host "    Du kan konfigurera detta senare i appen (Installningar)."
+                }
+                else {
+                    # Spara token i .env for framtida bruk
+                    $envFile = Join-Path $DataDir '.env'
+                    if (Test-Path $envFile) {
+                        $envContent = Get-Content $envFile -Raw
+                        if ($envContent -notmatch 'HF_TOKEN') {
+                            Add-Content -Path $envFile -Value "`nHF_TOKEN=`"$hfToken`""
+                        }
+                    }
+                    else {
+                        Set-Content -Path $envFile -Value "HF_TOKEN=`"$hfToken`""
+                    }
+
+                    Set-StepDone '.step-pyannote-model'
+                    Write-Host "    Talaridentifiering installerad!" -ForegroundColor Green
+                }
+            }
+        }
+        else {
+            Write-Host "    Ogiltig token (ska borja med hf_) — hoppar over" -ForegroundColor Yellow
+            Write-Host "    Du kan konfigurera detta senare i appen."
+        }
+    }
+    else {
+        Write-Host "    Hoppar over — kan konfigureras senare i appen." -ForegroundColor Yellow
+    }
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEG 8: Frontend (valfritt)
+# ══════════════════════════════════════════════════════════════════════════════
+Write-Step '8/8' 'Frontend (valfritt)'
 
 $frontendOut = Join-Path $Root 'frontend\out'
 if (Test-Path $frontendOut) {
