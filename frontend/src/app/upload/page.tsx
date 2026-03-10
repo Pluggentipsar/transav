@@ -7,6 +7,7 @@ import { FileDropzone } from "@/components/upload/FileDropzone";
 import { AudioPreview } from "@/components/upload/AudioPreview";
 import { AudioRecorder } from "@/components/upload/AudioRecorder";
 import { ModelSelector } from "@/components/upload/ModelSelector";
+import { DiarizationModal } from "@/components/upload/DiarizationModal";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -34,6 +35,7 @@ export default function UploadPage() {
   const [nerAvailable, setNerAvailable] = useState<boolean | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<TemplateResponse[]>([]);
+  const [showDiarizationModal, setShowDiarizationModal] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [step, setStep] = useState<UploadStep>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -199,7 +201,12 @@ export default function UploadPage() {
         <section className="space-y-4">
           <Toggle
             checked={enableDiarization}
-            onChange={setEnableDiarization}
+            onChange={(checked) => {
+              setEnableDiarization(checked);
+              if (checked) {
+                setShowDiarizationModal(true);
+              }
+            }}
             label="Talaridentifiering"
             description="Identifiera och separera olika talare i inspelningen"
             disabled={isSubmitting}
@@ -363,6 +370,15 @@ export default function UploadPage() {
           {isSubmitting ? "Bearbetar..." : "Starta transkription"}
         </Button>
       </div>
+
+      <DiarizationModal
+        isOpen={showDiarizationModal}
+        onClose={() => setShowDiarizationModal(false)}
+        onSkip={() => {
+          setShowDiarizationModal(false);
+          setEnableDiarization(false);
+        }}
+      />
     </div>
   );
 }

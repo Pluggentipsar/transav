@@ -17,6 +17,7 @@ import type {
   OcrResponse,
   OcrAnonymizeResponse,
   OcrStatusResponse,
+  DiarizationStatus,
 } from "@/types";
 
 const api = axios.create({
@@ -271,6 +272,24 @@ export const ocrExtractAndAnonymize = async (
 
 export const getOcrStatus = async (): Promise<OcrStatusResponse> => {
   const { data } = await api.get<OcrStatusResponse>("/ocr/status");
+  return data;
+};
+
+// Diarization
+export const getDiarizationStatus = async (): Promise<DiarizationStatus> => {
+  const { data } = await api.get<DiarizationStatus>(
+    "/settings/diarization-status"
+  );
+  return data;
+};
+
+export const setHfToken = async (
+  token: string
+): Promise<{ message: string; is_set: boolean }> => {
+  const { data } = await api.post<{ message: string; is_set: boolean }>(
+    "/settings/hf-token",
+    { token }
+  );
   return data;
 };
 

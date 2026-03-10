@@ -190,3 +190,14 @@ export interface OcrStatusResponse {
   supported_languages: string[];
   supported_formats: string[];
 }
+
+/** Diarization status */
+export interface DiarizationStatus {
+  whisperx_installed: boolean;
+  pyannote_installed: boolean;
+  model_local: boolean;
+  model_local_path: string | null;
+  hf_token_set: boolean;
+  ready: boolean;
+  message: string;
+}

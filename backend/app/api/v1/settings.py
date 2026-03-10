@@ -50,6 +50,18 @@ class HfTokenDeleteResponse(BaseModel):
     is_set: bool
 
 
+class DiarizationStatus(BaseModel):
+    """Diarization readiness status."""
+
+    whisperx_installed: bool
+    pyannote_installed: bool
+    model_local: bool
+    model_local_path: str | None
+    hf_token_set: bool
+    ready: bool
+    message: str
+
+
 # --- Helper functions ---
 
 
@@ -177,3 +189,46 @@ async def delete_hf_token() -> HfTokenDeleteResponse:
             status_code=500,
             detail=f"Kunde inte ta bort token: {e}",
         ) from e
+
+
+@router.get("/diarization-status", response_model=DiarizationStatus)
+async def get_diarization_status() -> DiarizationStatus:
+    """Check diarization readiness: dependencies, local model, and HF token."""
+    from app.services.diarization import (
+        _pyannote_installed,
+        get_local_model_path,
+        is_available,
+    )
+
+    whisperx_installed = is_available()
+    pyannote_installed = _pyannote_installed()
+    local_path = get_local_model_path()
+    model_local = local_path is not None
+    hf_token_set = bool(_get_hf_token())
+
+    # Determine readiness
+    if not whisperx_installed and not pyannote_installed:
+        ready = False
+        message = "WhisperX och pyannote ar inte installerade"
+    elif model_local:
+        ready = True
+        message = "Pyannote-modellen finns lokalt - inget token behovs"
+    elif hf_token_set and whisperx_installed:
+        ready = True
+        message = "Talaridentifiering ar redo att anvandas"
+    elif not whisperx_installed:
+        ready = False
+        message = "WhisperX ar inte installerat"
+    else:
+        ready = False
+        message = "HuggingFace-token kravs for talaridentifiering"
+
+    return DiarizationStatus(
+        whisperx_installed=whisperx_installed,
+        pyannote_installed=pyannote_installed,
+        model_local=model_local,
+        model_local_path=local_path,
+        hf_token_set=hf_token_set,
+        ready=ready,
+        message=message,
+    )
