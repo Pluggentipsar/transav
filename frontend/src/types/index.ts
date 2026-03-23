@@ -191,6 +191,34 @@ export interface OcrStatusResponse {
   supported_formats: string[];
 }
 
+/** Word frequency entry for transcript analysis */
+export interface WordFrequency {
+  word: string;
+  count: number;
+}
+
+/** Speaker analysis data */
+export interface SpeakerAnalysis {
+  name: string;
+  word_count: number;
+  talk_time: number;
+  segment_count: number;
+  talk_percentage: number;
+  words_per_minute: number;
+}
+
+/** Full transcript analysis response */
+export interface TranscriptAnalysisData {
+  total_duration: number;
+  total_words: number;
+  total_segments: number;
+  unique_words: number;
+  avg_words_per_minute: number;
+  avg_segment_length: number;
+  word_frequencies: WordFrequency[];
+  speakers: SpeakerAnalysis[];
+}
+
 /** Diarization status */
 export interface DiarizationStatus {
   whisperx_installed: boolean;

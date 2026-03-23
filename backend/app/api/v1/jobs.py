@@ -9,13 +9,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_session
 from app.models.job import Job
 from app.models.segment import Segment
-from app.schemas.job import JobCreate, JobListResponse, JobResponse, JobUpdate
+from app.schemas.job import (
+    JobCreate,
+    JobListResponse,
+    JobResponse,
+    JobUpdate,
+    SpeakerAnalysis,
+    TranscriptAnalysis,
+    WordFrequency,
+)
 from app.schemas.segment import (
     SpeakerRenameRequest,
     TranscriptResponse,
 )
 
 logger = logging.getLogger(__name__)
+
+SWEDISH_STOP_WORDS = {
+    "och", "i", "att", "det", "som", "en", "på", "är", "av", "för",
+    "med", "till", "den", "har", "inte", "om", "ett", "men", "var",
+    "jag", "de", "så", "vi", "kan", "han", "hade", "hon", "mitt",
+    "ska", "skulle", "från", "där", "alla", "kommer", "nu", "hur",
+    "eller", "vad", "sina", "här", "ha", "mot", "när",
+    "vara", "något", "ut", "sig", "dem", "oss", "upp", "dig",
+    "mig", "då", "man", "mycket", "sedan", "ju", "denna", "bara",
+    "nog", "efter", "redan", "min", "din", "just", "liksom",
+    "ja", "nej", "mm", "ehm", "öh", "eh", "va", "jo", "hmm",
+    "alltså", "typ", "asså",
+}
 
 router = APIRouter()
 
@@ -133,6 +154,116 @@ async def get_transcript(
         job_id=job_id,
         segments=segments,
         total_segments=len(segments),
+    )
+
+
+@router.get("/{job_id}/analysis", response_model=TranscriptAnalysis)
+async def get_analysis(
+    job_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> TranscriptAnalysis:
+    """Return analysis data for a completed transcription."""
+    result = await session.execute(select(Job).where(Job.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Jobb hittades inte")
+
+    if job.status != "COMPLETED":
+        raise HTTPException(
+            status_code=400,
+            detail="Transkriberingen ar inte klar annu",
+        )
+
+    # Fetch all segments with their words eagerly
+    from sqlalchemy.orm import selectinload
+
+    seg_result = await session.execute(
+        select(Segment)
+        .where(Segment.job_id == job_id)
+        .options(selectinload(Segment.words))
+        .order_by(Segment.segment_index)
+    )
+    segments = list(seg_result.scalars().all())
+
+    total_segments = len(segments)
+    total_duration = job.duration_seconds or 0.0
+
+    # Collect all words and compute frequencies
+    from collections import Counter
+
+    word_counter: Counter[str] = Counter()
+    total_words = 0
+    all_unique_words: set[str] = set()
+
+    # Per-speaker accumulators
+    speaker_data: dict[str, dict[str, float | int]] = {}
+
+    for segment in segments:
+        speaker = segment.speaker or "Okand"
+
+        if speaker not in speaker_data:
+            speaker_data[speaker] = {
+                "word_count": 0,
+                "talk_time": 0.0,
+                "segment_count": 0,
+            }
+
+        seg_duration = segment.end_time - segment.start_time
+        speaker_data[speaker]["talk_time"] += seg_duration  # type: ignore[operator]
+        speaker_data[speaker]["segment_count"] += 1  # type: ignore[operator]
+
+        # Count words from segment text (for frequency + totals)
+        segment_words = segment.text.strip().split()
+        for w in segment_words:
+            cleaned = w.strip(".,!?;:\"'()[]{}–-…").lower()
+            if not cleaned:
+                continue
+            total_words += 1
+            all_unique_words.add(cleaned)
+            speaker_data[speaker]["word_count"] += 1  # type: ignore[operator]
+            if cleaned not in SWEDISH_STOP_WORDS:
+                word_counter[cleaned] += 1
+
+    # Build word frequency list (top 30)
+    word_frequencies = [
+        WordFrequency(word=word, count=count)
+        for word, count in word_counter.most_common(30)
+    ]
+
+    # Build speaker analysis
+    speakers: list[SpeakerAnalysis] = []
+    for name, data in speaker_data.items():
+        wc = int(data["word_count"])
+        talk_time = float(data["talk_time"])
+        seg_count = int(data["segment_count"])
+        talk_pct = (talk_time / total_duration * 100) if total_duration > 0 else 0.0
+        wpm = (wc / talk_time * 60) if talk_time > 0 else 0.0
+
+        speakers.append(SpeakerAnalysis(
+            name=name,
+            word_count=wc,
+            talk_time=round(talk_time, 2),
+            segment_count=seg_count,
+            talk_percentage=round(talk_pct, 1),
+            words_per_minute=round(wpm, 1),
+        ))
+
+    # Sort speakers by talk time descending
+    speakers.sort(key=lambda s: s.talk_time, reverse=True)
+
+    # Overall statistics
+    avg_wpm = (total_words / total_duration * 60) if total_duration > 0 else 0.0
+    avg_seg_len = (total_duration / total_segments) if total_segments > 0 else 0.0
+
+    return TranscriptAnalysis(
+        total_duration=round(total_duration, 2),
+        total_words=total_words,
+        total_segments=total_segments,
+        unique_words=len(all_unique_words),
+        avg_words_per_minute=round(avg_wpm, 1),
+        avg_segment_length=round(avg_seg_len, 2),
+        word_frequencies=word_frequencies,
+        speakers=speakers,
     )
 
 

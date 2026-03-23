@@ -11,6 +11,9 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  Info,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import type { DiarizationStatus } from "@/types";
 import { getDiarizationStatus, setHfToken } from "@/services/api";
@@ -36,6 +39,8 @@ export function DiarizationModal({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState("");
+  const [showReadMore, setShowReadMore] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     setModalState("loading");
@@ -48,12 +53,36 @@ export function DiarizationModal({
     }
   }, []);
 
+  const recheckStatusSilent = useCallback(async () => {
+    try {
+      const result = await getDiarizationStatus();
+      setStatus(result);
+      if (result.ready) {
+        setSaveSuccessMessage("Token sparad! Allt är klart.");
+        setTimeout(() => setModalState("ready"), 800);
+      } else if (!result.whisperx_installed && !result.pyannote_installed) {
+        setSaveSuccessMessage(
+          "Token sparad! Talaridentifiering kräver dock att WhisperX/pyannote är installerat."
+        );
+      } else {
+        setSaveSuccessMessage(
+          "Token sparad! Se till att du har godkänt modellens användarvillkor (steg 2) och försök sedan igen."
+        );
+      }
+    } catch {
+      // Silently fail - we already showed "Token sparad"
+      setSaveSuccessMessage("Token sparad!");
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       setToken("");
       setShowToken(false);
       setSaveError(null);
       setSaveSuccess(false);
+      setSaveSuccessMessage("");
+      setShowReadMore(false);
       fetchStatus();
     }
   }, [isOpen, fetchStatus]);
@@ -64,17 +93,17 @@ export function DiarizationModal({
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
+    setSaveSuccessMessage("");
 
     try {
       const result = await setHfToken(token.trim());
       if (result.is_set) {
         setSaveSuccess(true);
-        // Re-check status after saving
-        setTimeout(() => {
-          fetchStatus();
-        }, 1000);
+        setSaveSuccessMessage("Token sparad!");
+        // Silent re-check without showing loading spinner
+        recheckStatusSilent();
       } else {
-        setSaveError("Token kunde inte sparas. Kontrollera att den ar giltig.");
+        setSaveError("Token kunde inte sparas. Kontrollera att den är giltig.");
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -98,13 +127,13 @@ export function DiarizationModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-[480px] bg-dark-900 border border-dark-800 rounded-xl shadow-2xl">
+      <div className="relative w-full max-w-[480px] max-h-[90vh] overflow-y-auto bg-dark-900 border border-dark-800 rounded-xl shadow-2xl">
         {/* Close button */}
         <button
           type="button"
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-500 hover:text-gray-300 transition-colors"
-          aria-label="Stang"
+          aria-label="Stäng"
         >
           <X className="h-5 w-5" />
         </button>
@@ -139,17 +168,17 @@ export function DiarizationModal({
                     Kunde inte kontrollera status
                   </p>
                   <p className="text-xs text-red-400/70 mt-1">
-                    Servern svarar inte. Kontrollera att backend-servern ar
-                    igang.
+                    Servern svarar inte. Kontrollera att backend-servern är
+                    igång.
                   </p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <Button variant="secondary" onClick={onSkip} className="flex-1">
-                  Hoppa over
+                  Hoppa över
                 </Button>
                 <Button onClick={fetchStatus} className="flex-1">
-                  Forsok igen
+                  Försök igen
                 </Button>
               </div>
             </div>
@@ -162,17 +191,17 @@ export function DiarizationModal({
                 <Check className="h-5 w-5 text-green-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-green-400">
-                    Talaridentifiering ar redo!
+                    Talaridentifiering är redo!
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
                     {status.model_local
-                      ? "Pyannote-modellen finns lokalt \u2013 inget extra kravs."
-                      : "HuggingFace-token ar konfigurerad."}
+                      ? "Pyannote-modellen finns lokalt \u2013 inget extra krävs."
+                      : "HuggingFace-token är konfigurerad."}
                   </p>
                 </div>
               </div>
               <Button onClick={onClose} className="w-full">
-                Stang
+                Stäng
               </Button>
             </div>
           )}
@@ -184,13 +213,72 @@ export function DiarizationModal({
               <div className="space-y-2">
                 <p className="text-sm text-gray-300">
                   Talaridentifiering identifierar vem som pratar i en
-                  inspelning. Funktionen anvander pyannote.audio, en AI-modell
-                  som kraver en gratis HuggingFace-token.
+                  inspelning. Funktionen använder pyannote.audio, en AI-modell
+                  som kräver en gratis HuggingFace-token.
                 </p>
+
+                {/* Read more expandable section */}
+                <div className="rounded-lg border border-dark-800 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowReadMore(!showReadMore)}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-left text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                  >
+                    <Info className="h-3.5 w-3.5 text-primary-400/70 flex-shrink-0" />
+                    <span>Läs mer om talaridentifiering</span>
+                    {showReadMore ? (
+                      <ChevronDown className="h-3.5 w-3.5 ml-auto flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5 ml-auto flex-shrink-0" />
+                    )}
+                  </button>
+                  {showReadMore && (
+                    <div className="px-3 pb-3 space-y-3 bg-dark-800/30">
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">
+                          Varför behövs detta?
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Pyannote är en AI-modell som kan identifiera vem som
+                          pratar. Den distribueras via HuggingFace och kräver att
+                          du godkänner deras användarvillkor.
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">
+                          Är det säkert?
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Din token lagras bara lokalt på din dator. Ingen
+                          ljuddata skickas till HuggingFace &ndash; modellen
+                          laddas ned och körs helt lokalt.
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">
+                          Vad är HuggingFace?
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          HuggingFace är en etablerad plattform för AI-modeller,
+                          liknande GitHub för kod. Det är gratis att skapa konto.
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-300">
+                          Kostar det något?
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Nej, både kontot och modellen är helt gratis.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-start gap-2 p-2.5 bg-dark-800/50 border border-dark-800 rounded-lg">
                   <AlertTriangle className="h-3.5 w-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-yellow-400">
-                    Detta ar valfritt &ndash; transkription fungerar utan detta.
+                    Detta är valfritt &ndash; transkription fungerar utan detta.
                   </p>
                 </div>
               </div>
@@ -198,7 +286,7 @@ export function DiarizationModal({
               {/* Steps */}
               <div className="space-y-3">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Steg-for-steg
+                  Steg-för-steg
                 </p>
 
                 {/* Step 1 */}
@@ -213,7 +301,7 @@ export function DiarizationModal({
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-sm text-primary-400 hover:text-primary-300 transition-colors"
                     >
-                      Skapa ett gratis konto pa HuggingFace
+                      Skapa ett gratis konto på HuggingFace
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   </div>
@@ -231,7 +319,7 @@ export function DiarizationModal({
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-sm text-primary-400 hover:text-primary-300 transition-colors"
                     >
-                      Godkann modellens anvandarvillkor
+                      Godkänn modellens användarvillkor
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   </div>
@@ -252,6 +340,9 @@ export function DiarizationModal({
                       Skapa en access token
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Bara &quot;Read&quot;-behörighet krävs.
+                    </p>
                   </div>
                 </div>
 
@@ -262,7 +353,7 @@ export function DiarizationModal({
                   </div>
                   <div className="flex-1 min-w-0 pt-0.5">
                     <p className="text-sm text-gray-300 mb-2">
-                      Klistra in din token har:
+                      Klistra in din token här:
                     </p>
 
                     {/* Token input */}
@@ -275,6 +366,7 @@ export function DiarizationModal({
                           setToken(e.target.value);
                           setSaveError(null);
                           setSaveSuccess(false);
+                          setSaveSuccessMessage("");
                         }}
                         placeholder="hf_..."
                         className="w-full bg-dark-950 border border-dark-800 rounded-lg pl-10 pr-10 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all font-mono"
@@ -283,7 +375,7 @@ export function DiarizationModal({
                         type="button"
                         onClick={() => setShowToken(!showToken)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
-                        aria-label={showToken ? "Dolj token" : "Visa token"}
+                        aria-label={showToken ? "Dölj token" : "Visa token"}
                       >
                         {showToken ? (
                           <EyeOff className="h-4 w-4" />
@@ -306,7 +398,7 @@ export function DiarizationModal({
                       <div className="flex items-center gap-2 mt-2 p-2 bg-green-600/10 border border-green-600/20 rounded-lg">
                         <Check className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
                         <p className="text-xs text-green-400">
-                          Token sparad! Kontrollerar status...
+                          {saveSuccessMessage || "Token sparad!"}
                         </p>
                       </div>
                     )}
@@ -316,22 +408,30 @@ export function DiarizationModal({
 
               {/* Action buttons */}
               <div className="flex gap-3 pt-2">
-                <Button
-                  variant="secondary"
-                  onClick={onSkip}
-                  className="flex-1"
-                >
-                  Hoppa over
-                </Button>
-                <Button
-                  onClick={handleSaveToken}
-                  disabled={!token.trim() || saving}
-                  loading={saving}
-                  className="flex-1"
-                  icon={<Key className="h-4 w-4" />}
-                >
-                  {saving ? "Sparar..." : "Spara token"}
-                </Button>
+                {saveSuccess ? (
+                  <Button onClick={onClose} className="w-full">
+                    Stäng och fortsätt
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={onSkip}
+                      className="flex-1"
+                    >
+                      Hoppa över
+                    </Button>
+                    <Button
+                      onClick={handleSaveToken}
+                      disabled={!token.trim() || saving}
+                      loading={saving}
+                      className="flex-1"
+                      icon={<Key className="h-4 w-4" />}
+                    >
+                      {saving ? "Sparar..." : "Spara token"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           )}

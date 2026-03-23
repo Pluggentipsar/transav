@@ -43,7 +43,7 @@ swedish.FinishedHeadingLabel=Installationen är klar!
 swedish.FinishedLabel=TystText är redo att användas.%n%nStarta via genvägen på skrivbordet eller i startmenyn.
 
 [Tasks]
-Name: "desktopicon"; Description: "Skapa genväg på skrivbordet"; GroupDescription: "Genvägar:"; Flags: checked
+Name: "desktopicon"; Description: "Skapa genväg på skrivbordet"; GroupDescription: "Genvägar:"
 Name: "cuda"; Description: "Installera GPU-stöd (NVIDIA CUDA) — kräver NVIDIA-grafikkort, ~2.5 GB extra"; GroupDescription: "Tillval:"; Flags: unchecked
 
 [Files]
@@ -98,7 +98,7 @@ begin
   if CurStep = ssPostInstall then
   begin
     { Skriv GPU-val markör baserat på användarens val }
-    if IsTaskSelected('cuda') then
+    if WizardIsTaskSelected('cuda') then
       GpuChoice := 'cuda'
     else
       GpuChoice := 'cpu';

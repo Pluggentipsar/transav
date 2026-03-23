@@ -35,6 +35,7 @@ import {
 import { AudioPlayer } from "@/components/transcription/AudioPlayer";
 import { TranscriptViewer } from "@/components/transcription/TranscriptViewer";
 import { SpeakerManager } from "@/components/transcription/SpeakerManager";
+import { TranscriptAnalysis } from "@/components/transcription/TranscriptAnalysis";
 import { ExportPanel } from "@/components/transcription/ExportPanel";
 import { CustomWordsInput } from "@/components/anonymize/CustomWordsInput";
 import { EntityStats } from "@/components/anonymize/EntityStats";
@@ -669,6 +670,14 @@ export default function JobDetailPage() {
                 segments={transcript.segments}
                 speakerMap={speakerMap}
                 onRenameSpeaker={handleRenameSpeaker}
+              />
+            )}
+
+            {/* Transcript analysis */}
+            {transcript && (
+              <TranscriptAnalysis
+                jobId={jobId}
+                speakerMap={speakerMap}
               />
             )}
 

@@ -50,3 +50,28 @@ class JobResponse(BaseModel):
 class JobListResponse(BaseModel):
     jobs: list[JobResponse]
     total: int
+
+
+class WordFrequency(BaseModel):
+    word: str
+    count: int
+
+
+class SpeakerAnalysis(BaseModel):
+    name: str
+    word_count: int
+    talk_time: float
+    segment_count: int
+    talk_percentage: float
+    words_per_minute: float
+
+
+class TranscriptAnalysis(BaseModel):
+    total_duration: float
+    total_words: int
+    total_segments: int
+    unique_words: int
+    avg_words_per_minute: float
+    avg_segment_length: float
+    word_frequencies: list[WordFrequency]
+    speakers: list[SpeakerAnalysis]

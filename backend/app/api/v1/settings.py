@@ -150,12 +150,12 @@ async def set_hf_token(data: HfTokenSetRequest) -> HfTokenSetResponse:
     """Save HuggingFace token to .env file."""
     token = data.token.strip()
     if not token:
-        raise HTTPException(status_code=400, detail="Token far inte vara tom")
+        raise HTTPException(status_code=400, detail="Token får inte vara tom")
 
     if not token.startswith("hf_"):
         raise HTTPException(
             status_code=400,
-            detail="Ogiltig token. HuggingFace-tokens borjar med 'hf_'",
+            detail="Ogiltig token. HuggingFace-tokens börjar med 'hf_'",
         )
 
     try:
@@ -209,19 +209,19 @@ async def get_diarization_status() -> DiarizationStatus:
     # Determine readiness
     if not whisperx_installed and not pyannote_installed:
         ready = False
-        message = "WhisperX och pyannote ar inte installerade"
+        message = "WhisperX och pyannote är inte installerade"
     elif model_local:
         ready = True
-        message = "Pyannote-modellen finns lokalt - inget token behovs"
+        message = "Pyannote-modellen finns lokalt - inget token behövs"
     elif hf_token_set and whisperx_installed:
         ready = True
-        message = "Talaridentifiering ar redo att anvandas"
+        message = "Talaridentifiering är redo att användas"
     elif not whisperx_installed:
         ready = False
-        message = "WhisperX ar inte installerat"
+        message = "WhisperX är inte installerat"
     else:
         ready = False
-        message = "HuggingFace-token kravs for talaridentifiering"
+        message = "HuggingFace-token krävs för talaridentifiering"
 
     return DiarizationStatus(
         whisperx_installed=whisperx_installed,

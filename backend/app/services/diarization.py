@@ -50,23 +50,17 @@ def get_local_model_path() -> str | None:
 
 
 def is_available() -> bool:
-    """Check if diarization dependencies are installed."""
-    try:
-        import whisperx  # noqa: F401
+    """Check if diarization dependencies are installed (fast, no heavy imports)."""
+    from importlib.util import find_spec
 
-        return True
-    except ImportError:
-        return False
+    return find_spec("whisperx") is not None
 
 
 def _pyannote_installed() -> bool:
-    """Check if pyannote.audio can be imported."""
-    try:
-        import pyannote.audio  # noqa: F401
+    """Check if pyannote.audio is installed (fast, no heavy imports)."""
+    from importlib.util import find_spec
 
-        return True
-    except ImportError:
-        return False
+    return find_spec("pyannote") is not None and find_spec("pyannote.audio") is not None
 
 
 def diarize(

@@ -53,3 +53,4 @@ Thumbs.db
 .claude/agent-memory/
 .claude/agent-memory-local/
 CLAUDE.local.md
+Output/

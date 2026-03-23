@@ -4,6 +4,7 @@ import type {
   JobListResponse,
   UploadResponse,
   TranscriptResponse,
+  TranscriptAnalysisData,
   SegmentResponse,
   AnonymizeRequest,
   AnonymizeResponse,
@@ -87,6 +88,16 @@ export const getTranscript = async (
 ): Promise<TranscriptResponse> => {
   const { data } = await api.get<TranscriptResponse>(
     `/jobs/${jobId}/transcript`
+  );
+  return data;
+};
+
+// Analysis
+export const getTranscriptAnalysis = async (
+  jobId: string
+): Promise<TranscriptAnalysisData> => {
+  const { data } = await api.get<TranscriptAnalysisData>(
+    `/jobs/${jobId}/analysis`
   );
   return data;
 };
