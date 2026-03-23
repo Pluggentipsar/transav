@@ -86,19 +86,25 @@ def diarize(
     """
     local_model_path = get_local_model_path()
 
+    # 1. Local pyannote model (no token needed)
     if local_model_path:
         logger.info("Anvander lokal pyannote-modell: %s", local_model_path)
         return _diarize_local(audio_path, segments, local_model_path, device, progress_callback)
 
-    # Fallback: WhisperX with HF token
     if not hf_token:
         logger.warning("HuggingFace-token saknas - kan inte kora talaridentifiering")
         return segments
 
+    # 2. pyannote.audio + HF token (downloads model on first use)
+    if _pyannote_installed():
+        logger.info("Anvander pyannote.audio med HuggingFace-token for talaridentifiering")
+        return _diarize_pyannote_remote(audio_path, segments, hf_token, device, progress_callback)
+
+    # 3. WhisperX fallback (includes its own pyannote handling)
     try:
         import whisperx  # noqa: F811
     except ImportError:
-        logger.warning("whisperx ej installerat - hoppar over talaridentifiering")
+        logger.warning("Varken pyannote eller whisperx installerat - hoppar over talaridentifiering")
         return segments
 
     logger.info("Anvander WhisperX med HuggingFace-token for talaridentifiering")
@@ -143,6 +149,69 @@ def _diarize_local(
         speaker_turns.append((turn.start, turn.end, speaker))
 
     # Assign speakers to segments based on overlap
+    for seg in segments:
+        seg_start = float(seg.get("start", 0.0))
+        seg_end = float(seg.get("end", 0.0))
+        best_speaker = _find_best_speaker(seg_start, seg_end, speaker_turns)
+        if best_speaker:
+            seg["speaker"] = best_speaker
+
+    if progress_callback:
+        progress_callback(90, "Talaridentifiering klar")
+
+    return segments
+
+
+def _diarize_pyannote_remote(
+    audio_path: str,
+    segments: list[dict[str, object]],
+    hf_token: str,
+    device: str,
+    progress_callback: Callable[[int, str], None] | None,
+) -> list[dict[str, object]]:
+    """Run diarization using pyannote.audio with HF token (downloads model on first use)."""
+    try:
+        from pyannote.audio import Pipeline
+    except ImportError:
+        logger.error("pyannote.audio ej installerat")
+        return segments
+
+    if progress_callback:
+        progress_callback(72, "Laddar talaridentifieringsmodell fran HuggingFace...")
+
+    try:
+        pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-3.1",
+            use_auth_token=hf_token,
+        )
+    except Exception:
+        logger.warning("Kunde inte ladda diarization-3.1, forsoker med community-modell")
+        try:
+            pipeline = Pipeline.from_pretrained(
+                "pyannote/speaker-diarization-community-1",
+                use_auth_token=hf_token,
+            )
+        except Exception:
+            logger.exception("Kunde inte ladda nagon pyannote-modell")
+            return segments
+
+    pipeline.to(device)  # type: ignore[no-untyped-call]
+
+    if progress_callback:
+        progress_callback(78, "Identifierar talare...")
+
+    import torch
+
+    with torch.no_grad():
+        diarization = pipeline(audio_path)
+
+    if progress_callback:
+        progress_callback(85, "Tilldelar talare till segment...")
+
+    speaker_turns: list[tuple[float, float, str]] = []
+    for turn, _, speaker in diarization.itertracks(yield_label=True):
+        speaker_turns.append((turn.start, turn.end, speaker))
+
     for seg in segments:
         seg_start = float(seg.get("start", 0.0))
         seg_end = float(seg.get("end", 0.0))

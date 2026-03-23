@@ -212,16 +212,16 @@ async def get_diarization_status() -> DiarizationStatus:
         message = "WhisperX och pyannote är inte installerade"
     elif model_local:
         ready = True
-        message = "Pyannote-modellen finns lokalt - inget token behövs"
-    elif hf_token_set and whisperx_installed:
+        message = "Pyannote-modellen finns lokalt — inget token behövs"
+    elif hf_token_set and (pyannote_installed or whisperx_installed):
         ready = True
         message = "Talaridentifiering är redo att användas"
-    elif not whisperx_installed:
-        ready = False
-        message = "WhisperX är inte installerat"
-    else:
+    elif not hf_token_set:
         ready = False
         message = "HuggingFace-token krävs för talaridentifiering"
+    else:
+        ready = False
+        message = "Talaridentifiering kräver en HuggingFace-token"
 
     return DiarizationStatus(
         whisperx_installed=whisperx_installed,
