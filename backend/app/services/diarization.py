@@ -57,10 +57,14 @@ def is_available() -> bool:
 
 
 def _pyannote_installed() -> bool:
-    """Check if pyannote.audio is installed (fast, no heavy imports)."""
+    """Check if pyannote.audio is installed (fast, no heavy imports).
+
+    Note: pyannote is a namespace package (no __init__.py), so
+    find_spec("pyannote") returns None. Only check pyannote.audio.
+    """
     from importlib.util import find_spec
 
-    return find_spec("pyannote") is not None and find_spec("pyannote.audio") is not None
+    return find_spec("pyannote.audio") is not None
 
 
 def diarize(
