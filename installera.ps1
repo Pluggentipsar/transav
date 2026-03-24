@@ -375,8 +375,8 @@ else {
         $hfToken = Read-Host "    Klistra in din HuggingFace-token (hf_...)"
 
         if ($hfToken -match '^hf_') {
-            Write-Host "    Installerar whisperx och pyannote-audio..."
-            $rc = Invoke-Native -PassThru { & $PipExe install --no-warn-script-location "whisperx" "pyannote.audio>=3.1" }
+            Write-Host "    Installerar pyannote-audio..."
+            $rc = Invoke-Native -PassThru { & $PipExe install --no-warn-script-location "pyannote.audio>=3.1" }
             if ($rc -ne 0) {
                 Write-Host "    pyannote-audio installationen misslyckades — hoppar over" -ForegroundColor Yellow
             }
