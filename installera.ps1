@@ -370,13 +370,13 @@ else {
         Write-Host "    For att ladda ned modellen behover du:" -ForegroundColor Cyan
         Write-Host "    1. Skapa ett gratis konto:  https://huggingface.co/join"
         Write-Host "    2. Godkann modellen:        https://huggingface.co/pyannote/speaker-diarization-community-1"
-        Write-Host "    3. Skapa en access token:   https://huggingface.co/settings/tokens"
+        Write-Host "    3. Skapa en access token (read-behorighet racker): https://huggingface.co/settings/tokens"
         Write-Host ""
         $hfToken = Read-Host "    Klistra in din HuggingFace-token (hf_...)"
 
         if ($hfToken -match '^hf_') {
-            Write-Host "    Installerar pyannote-audio..."
-            $rc = Invoke-Native -PassThru { & $PipExe install --no-warn-script-location "pyannote.audio>=3.1" }
+            Write-Host "    Installerar whisperx och pyannote-audio..."
+            $rc = Invoke-Native -PassThru { & $PipExe install --no-warn-script-location "whisperx" "pyannote.audio>=3.1" }
             if ($rc -ne 0) {
                 Write-Host "    pyannote-audio installationen misslyckades — hoppar over" -ForegroundColor Yellow
             }
