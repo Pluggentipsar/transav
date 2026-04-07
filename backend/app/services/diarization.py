@@ -186,25 +186,25 @@ def _diarize_pyannote_remote(
     try:
         pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
-            use_auth_token=hf_token,
+            token=hf_token,
         )
     except Exception:
         logger.warning("Kunde inte ladda diarization-3.1, forsoker med community-modell")
         try:
             pipeline = Pipeline.from_pretrained(
                 "pyannote/speaker-diarization-community-1",
-                use_auth_token=hf_token,
+                token=hf_token,
             )
         except Exception:
             logger.exception("Kunde inte ladda nagon pyannote-modell")
             return segments
 
-    pipeline.to(device)  # type: ignore[no-untyped-call]
+    import torch
+
+    pipeline.to(torch.device(device))  # type: ignore[no-untyped-call]
 
     if progress_callback:
         progress_callback(78, "Identifierar talare...")
-
-    import torch
 
     with torch.no_grad():
         diarization = pipeline(audio_path)

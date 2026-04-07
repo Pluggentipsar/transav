@@ -2,8 +2,10 @@
 
 import logging
 import queue
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -68,15 +70,51 @@ def _progress_callback(job_id: str, progress: int, step: str) -> None:
         logger.debug("Could not persist progress to DB", exc_info=True)
 
 
+def _convert_to_wav(audio_path: str) -> str | None:
+    """Convert non-WAV audio to WAV using ffmpeg for better compatibility.
+
+    Returns path to the converted WAV file, or None if no conversion needed.
+    """
+    src = Path(audio_path)
+    if src.suffix.lower() == ".wav":
+        return None
+
+    wav_path = src.with_suffix(".wav")
+    logger.info("Konverterar %s till WAV for battre kompatibilitet...", src.suffix)
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", str(src),
+                "-ar", "16000",
+                "-ac", "1",
+                "-c:a", "pcm_s16le",
+                str(wav_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if result.returncode != 0:
+            logger.error("ffmpeg-konvertering misslyckades: %s", result.stderr[-500:])
+            return None
+        logger.info("Konvertering klar: %s", wav_path.name)
+        return str(wav_path)
+    except Exception:
+        logger.exception("Kunde inte konvertera ljudfil till WAV")
+        return None
+
+
 def _process_job(job_id: str) -> None:
     """Process a transcription job (runs in thread pool).
 
     Steps:
     1. Load job from DB
-    2. Run transcription (5-70%)
-    3. Run diarization if enabled (70-90%)
-    4. Run anonymization if enabled (90-95%)
-    5. Save results to DB (95-100%)
+    2. Convert audio to WAV if needed
+    3. Run transcription (5-70%)
+    4. Run diarization if enabled (70-90%)
+    5. Run anonymization if enabled (90-95%)
+    6. Save results to DB (95-100%)
     """
     from app.models.job import Job
     from app.models.segment import Segment
@@ -84,6 +122,7 @@ def _process_job(job_id: str) -> None:
     from app.services.transcription import transcribe
 
     session = _SyncSession()
+    wav_tmp: str | None = None
     try:
         # 1. Load job
         job = session.get(Job, job_id)
@@ -101,7 +140,12 @@ def _process_job(job_id: str) -> None:
         def progress_cb(pct: int, step: str) -> None:
             _progress_callback(job_id, pct, step)
 
-        # 2. Run transcription (5-70%) — dispatch to correct engine
+        # 2. Convert to WAV if needed (avoids ffmpeg decode issues with M4A etc.)
+        progress_cb(2, "Forbereder ljudfil...")
+        wav_tmp = _convert_to_wav(job.file_path)
+        audio_path = wav_tmp or job.file_path
+
+        # 3. Run transcription (5-70%) — dispatch to correct engine
         progress_cb(5, "Startar transkribering...")
         engine = getattr(job, "engine", "faster-whisper") or "faster-whisper"
 
@@ -109,7 +153,7 @@ def _process_job(job_id: str) -> None:
             from app.services.transcription_easy import transcribe as transcribe_easy
 
             result = transcribe_easy(
-                audio_path=job.file_path,
+                audio_path=audio_path,
                 model_name=job.model,
                 language=job.language,
                 device=settings.default_device,
@@ -118,7 +162,7 @@ def _process_job(job_id: str) -> None:
             )
         else:
             result = transcribe(
-                audio_path=job.file_path,
+                audio_path=audio_path,
                 model_name=job.model,
                 language=job.language,
                 device=settings.default_device,
@@ -145,14 +189,14 @@ def _process_job(job_id: str) -> None:
             }
             segments_data.append(seg_dict)
 
-        # 3. Run diarization if enabled (70-90%)
+        # 4. Run diarization if enabled (70-90%)
         speakers: set[str] = set()
         if job.enable_diarization:
             progress_cb(70, "Startar talaridentifiering...")
             from app.services.diarization import diarize
 
             segments_data = diarize(
-                audio_path=job.file_path,
+                audio_path=audio_path,
                 segments=segments_data,
                 hf_token=settings.hf_token,
                 device=settings.default_device if settings.default_device != "auto" else "cpu",
@@ -166,7 +210,7 @@ def _process_job(job_id: str) -> None:
         else:
             progress_cb(90, "Hoppar over talaridentifiering")
 
-        # 4. Run anonymization if enabled (90-95%)
+        # 5. Run anonymization if enabled (90-95%)
         if job.enable_anonymization:
             progress_cb(90, "Anonymiserar...")
             from app.services.anonymization import (
@@ -215,7 +259,7 @@ def _process_job(job_id: str) -> None:
         else:
             progress_cb(95, "Hoppar over anonymisering")
 
-        # 5. Save results to DB (95-100%)
+        # 6. Save results to DB (95-100%)
         progress_cb(95, "Sparar resultat...")
 
         total_words = 0
@@ -298,5 +342,11 @@ def _process_job(job_id: str) -> None:
             logger.exception("Failed to update job status to FAILED")
     finally:
         session.close()
+        # Cleanup temporary WAV file
+        if wav_tmp:
+            try:
+                Path(wav_tmp).unlink(missing_ok=True)
+            except Exception:
+                logger.debug("Could not remove temp WAV: %s", wav_tmp)
         # Cleanup progress queue
         _progress_queues.pop(job_id, None)
