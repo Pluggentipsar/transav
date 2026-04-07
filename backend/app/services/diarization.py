@@ -148,8 +148,11 @@ def _diarize_local(
         progress_callback(85, "Tilldelar talare till segment...")
 
     # Build a list of (start, end, speaker) tuples from pyannote output
+    # Handle both Annotation (diarization-3.1) and DiarizeOutput (community model)
+    annotation = getattr(diarization, "speaker_diarization", diarization)
+
     speaker_turns: list[tuple[float, float, str]] = []
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
+    for turn, _, speaker in annotation.itertracks(yield_label=True):
         speaker_turns.append((turn.start, turn.end, speaker))
 
     # Assign speakers to segments based on overlap
@@ -206,14 +209,34 @@ def _diarize_pyannote_remote(
     if progress_callback:
         progress_callback(78, "Identifierar talare...")
 
+    # Pre-load audio as waveform dict to bypass torchcodec/torchaudio issues.
+    # Uses Python built-in wave module (works since audio is already converted to WAV).
+    import wave as wave_mod
+
+    import numpy as np
+
+    with wave_mod.open(audio_path, "rb") as wf:
+        sr = wf.getframerate()
+        n_frames = wf.getnframes()
+        n_channels = wf.getnchannels()
+        raw = wf.readframes(n_frames)
+    audio_np = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    if n_channels > 1:
+        audio_np = audio_np.reshape(-1, n_channels).mean(axis=1)
+    waveform = torch.from_numpy(audio_np).unsqueeze(0)  # (1, time)
+    audio_input = {"waveform": waveform, "sample_rate": sr}
+
     with torch.no_grad():
-        diarization = pipeline(audio_path)
+        diarization = pipeline(audio_input)
 
     if progress_callback:
         progress_callback(85, "Tilldelar talare till segment...")
 
+    # Handle both Annotation (diarization-3.1) and DiarizeOutput (community model)
+    annotation = getattr(diarization, "speaker_diarization", diarization)
+
     speaker_turns: list[tuple[float, float, str]] = []
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
+    for turn, _, speaker in annotation.itertracks(yield_label=True):
         speaker_turns.append((turn.start, turn.end, speaker))
 
     for seg in segments:
